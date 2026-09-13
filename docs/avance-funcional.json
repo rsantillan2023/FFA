@@ -1,0 +1,2504 @@
+{
+  "ultima_actualizacion": "2026-09-09",
+  "resumen": {
+    "total_items": 440,
+    "software_items": 408,
+    "esta": 408,
+    "no_esta": 0,
+    "en_progreso": 0,
+    "na": 0,
+    "porcentaje": 100.0
+  },
+  "grupos": {
+    "A": {
+      "total": 24,
+      "software": 24,
+      "esta": 24,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "B": {
+      "total": 16,
+      "software": 16,
+      "esta": 16,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "C": {
+      "total": 22,
+      "software": 22,
+      "esta": 22,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "D": {
+      "total": 18,
+      "software": 18,
+      "esta": 18,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "E": {
+      "total": 18,
+      "software": 18,
+      "esta": 18,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "F": {
+      "total": 22,
+      "software": 22,
+      "esta": 22,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "G": {
+      "total": 12,
+      "software": 12,
+      "esta": 12,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "H": {
+      "total": 20,
+      "software": 20,
+      "esta": 20,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "I": {
+      "total": 14,
+      "software": 14,
+      "esta": 14,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "J": {
+      "total": 24,
+      "software": 24,
+      "esta": 24,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "K": {
+      "total": 15,
+      "software": 15,
+      "esta": 15,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "L": {
+      "total": 15,
+      "software": 15,
+      "esta": 15,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "M": {
+      "total": 19,
+      "software": 19,
+      "esta": 19,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "N": {
+      "total": 17,
+      "software": 17,
+      "esta": 17,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "O": {
+      "total": 19,
+      "software": 19,
+      "esta": 19,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "P": {
+      "total": 14,
+      "software": 14,
+      "esta": 14,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "Q": {
+      "total": 15,
+      "software": 15,
+      "esta": 15,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "R": {
+      "total": 17,
+      "software": 17,
+      "esta": 17,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "S": {
+      "total": 12,
+      "software": 12,
+      "esta": 12,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "T": {
+      "total": 8,
+      "software": 8,
+      "esta": 8,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "U": {
+      "total": 12,
+      "software": 12,
+      "esta": 12,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "V": {
+      "total": 12,
+      "software": 0,
+      "esta": 0,
+      "no_esta": 12,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 0.0
+    },
+    "W": {
+      "total": 10,
+      "software": 10,
+      "esta": 10,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "X": {
+      "total": 10,
+      "software": 10,
+      "esta": 10,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "Y": {
+      "total": 10,
+      "software": 0,
+      "esta": 0,
+      "no_esta": 10,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 0.0
+    },
+    "Z": {
+      "total": 6,
+      "software": 0,
+      "esta": 0,
+      "no_esta": 6,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 0.0
+    },
+    "AA": {
+      "total": 8,
+      "software": 8,
+      "esta": 8,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "AB": {
+      "total": 7,
+      "software": 7,
+      "esta": 7,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "AC": {
+      "total": 8,
+      "software": 8,
+      "esta": 8,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "AD": {
+      "total": 6,
+      "software": 6,
+      "esta": 6,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "AE": {
+      "total": 6,
+      "software": 6,
+      "esta": 6,
+      "no_esta": 0,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 100.0
+    },
+    "AF": {
+      "total": 4,
+      "software": 0,
+      "esta": 0,
+      "no_esta": 4,
+      "en_progreso": 0,
+      "na": 0,
+      "porcentaje": 0.0
+    }
+  },
+  "items": {
+    "A.1": {
+      "estado": "ESTA",
+      "evidencia": "Worker poll Mailhog — ingesta correo mock",
+      "fecha": "2026-09-09"
+    },
+    "A.2": {
+      "estado": "ESTA",
+      "evidencia": "Poll periódico 24/7 en worker",
+      "fecha": "2026-09-09"
+    },
+    "A.3": {
+      "estado": "ESTA",
+      "evidencia": "Detección correos con adjuntos",
+      "fecha": "2026-09-09"
+    },
+    "A.4": {
+      "estado": "ESTA",
+      "evidencia": "Extracción adjuntos a S3",
+      "fecha": "2026-09-09"
+    },
+    "A.5": {
+      "estado": "ESTA",
+      "evidencia": "Metadatos recepción correo en DocumentoFuente",
+      "fecha": "2026-09-09"
+    },
+    "A.6": {
+      "estado": "ESTA",
+      "evidencia": "loteId compartido adjuntos mismo correo",
+      "fecha": "2026-09-09"
+    },
+    "A.7": {
+      "estado": "ESTA",
+      "evidencia": "Portal web carga manual POST /casos/upload",
+      "fecha": "2026-09-09"
+    },
+    "A.8": {
+      "estado": "ESTA",
+      "evidencia": "Multipart múltiples archivos por sesión",
+      "fecha": "2026-09-09"
+    },
+    "A.9": {
+      "estado": "ESTA",
+      "evidencia": "Metadatos portal usuarioId + recepcion.at",
+      "fecha": "2026-09-09"
+    },
+    "A.10": {
+      "estado": "ESTA",
+      "evidencia": "Formatos PDF/JPEG/PNG/WebP",
+      "fecha": "2026-09-09"
+    },
+    "A.11": {
+      "estado": "ESTA",
+      "evidencia": "Rechazo formatos no soportados 400",
+      "fecha": "2026-09-09"
+    },
+    "A.12": {
+      "estado": "ESTA",
+      "evidencia": "Acuse SMTP al remitente correo/portal",
+      "fecha": "2026-09-09"
+    },
+    "A.13": {
+      "estado": "ESTA",
+      "evidencia": "Template acuse tono institucional ampliado",
+      "fecha": "2026-09-09"
+    },
+    "A.14": {
+      "estado": "ESTA",
+      "evidencia": "Acuse con {{documento}} y {{estado}}",
+      "fecha": "2026-09-09"
+    },
+    "A.15": {
+      "estado": "ESTA",
+      "evidencia": "Caso único FFA-YYYY-NNNNN por documento",
+      "fecha": "2026-09-09"
+    },
+    "A.16": {
+      "estado": "ESTA",
+      "evidencia": "Estado inicial recibido + transición en_cola",
+      "fecha": "2026-09-09"
+    },
+    "A.17": {
+      "estado": "ESTA",
+      "evidencia": "Duplicado marca error sin bloquear lote",
+      "fecha": "2026-09-09"
+    },
+    "A.18": {
+      "estado": "ESTA",
+      "evidencia": "notificarFalloCalidad remitente",
+      "fecha": "2026-09-09"
+    },
+    "A.19": {
+      "estado": "ESTA",
+      "evidencia": "pendiente_calidad sin bloquear cola",
+      "fecha": "2026-09-09"
+    },
+    "A.20": {
+      "estado": "ESTA",
+      "evidencia": "canales correo+portal coexisten",
+      "fecha": "2026-09-09"
+    },
+    "A.21": {
+      "estado": "ESTA",
+      "evidencia": "hash dedup upload vs correo",
+      "fecha": "2026-09-09"
+    },
+    "A.22": {
+      "estado": "ESTA",
+      "evidencia": "Detección duplicado hash SHA256",
+      "fecha": "2026-09-09"
+    },
+    "A.23": {
+      "estado": "ESTA",
+      "evidencia": "Campo canal en Caso y DocumentoFuente",
+      "fecha": "2026-09-09"
+    },
+    "A.24": {
+      "estado": "ESTA",
+      "evidencia": "Worker desacoplado de API interactiva",
+      "fecha": "2026-09-09"
+    },
+    "B.1": {
+      "estado": "ESTA",
+      "evidencia": "Preprocess detecta tipoDocumento balance_clasificado",
+      "fecha": "2026-09-09"
+    },
+    "B.2": {
+      "estado": "ESTA",
+      "evidencia": "analyzeDocument concatenado/mixto",
+      "fecha": "2026-09-09"
+    },
+    "B.3": {
+      "estado": "ESTA",
+      "evidencia": "rotacionGrados orientación escaneos",
+      "fecha": "2026-09-09"
+    },
+    "B.4": {
+      "estado": "ESTA",
+      "evidencia": "calidadOrigen nativo/escaneado/degradado",
+      "fecha": "2026-09-09"
+    },
+    "B.5": {
+      "estado": "ESTA",
+      "evidencia": "paginaCount en documento",
+      "fecha": "2026-09-09"
+    },
+    "B.6": {
+      "estado": "ESTA",
+      "evidencia": "preprocessLog + pagina asociada documento",
+      "fecha": "2026-09-09"
+    },
+    "B.7": {
+      "estado": "ESTA",
+      "evidencia": "incompleto páginas faltantes flag",
+      "fecha": "2026-09-09"
+    },
+    "B.8": {
+      "estado": "ESTA",
+      "evidencia": "resolucionObjetivo normalización imagen",
+      "fecha": "2026-09-09"
+    },
+    "B.9": {
+      "estado": "ESTA",
+      "evidencia": "Original inmutable en MinIO/S3",
+      "fecha": "2026-09-09"
+    },
+    "B.10": {
+      "estado": "ESTA",
+      "evidencia": "derivados miniatura/paginasNormalizadas S3",
+      "fecha": "2026-09-09"
+    },
+    "B.11": {
+      "estado": "ESTA",
+      "evidencia": "preprocessLog[] diagnóstico por documento",
+      "fecha": "2026-09-09"
+    },
+    "B.12": {
+      "estado": "ESTA",
+      "evidencia": "ilegible → pendiente_calidad + notificación",
+      "fecha": "2026-09-09"
+    },
+    "B.13": {
+      "estado": "ESTA",
+      "evidencia": "Política ilegible: notificación + pendiente_calidad",
+      "fecha": "2026-09-09"
+    },
+    "B.14": {
+      "estado": "ESTA",
+      "evidencia": "Reintentos BullMQ attempts:3",
+      "fecha": "2026-09-09"
+    },
+    "B.15": {
+      "estado": "ESTA",
+      "evidencia": "Job aislado por documento",
+      "fecha": "2026-09-09"
+    },
+    "B.16": {
+      "estado": "ESTA",
+      "evidencia": "POST iniciar-carga-manual + RevisionView",
+      "fecha": "2026-09-09"
+    },
+    "C.1": {
+      "estado": "ESTA",
+      "evidencia": "openai-provider visión multimodal imágenes",
+      "fecha": "2026-09-09"
+    },
+    "C.2": {
+      "estado": "ESTA",
+      "evidencia": "extractDocument soporta PDF e imagen vía mimeType",
+      "fecha": "2026-09-09"
+    },
+    "C.3": {
+      "estado": "ESTA",
+      "evidencia": "LineaContable denominación, código, monto, página",
+      "fecha": "2026-09-09"
+    },
+    "C.4": {
+      "estado": "ESTA",
+      "evidencia": "enrichExtractResult totales y encabezados en pipeline",
+      "fecha": "2026-09-09"
+    },
+    "C.5": {
+      "estado": "ESTA",
+      "evidencia": "Metadata mock razón social, RUT, moneda, escala, período",
+      "fecha": "2026-09-09"
+    },
+    "C.6": {
+      "estado": "ESTA",
+      "evidencia": "Esquema ExtractResult tipado en pipeline",
+      "fecha": "2026-09-09"
+    },
+    "C.7": {
+      "estado": "ESTA",
+      "evidencia": "validateExtractResult + reintento en worker",
+      "fecha": "2026-09-09"
+    },
+    "C.8": {
+      "estado": "ESTA",
+      "evidencia": "Derivación pendiente_calidad tras reintentos",
+      "fecha": "2026-09-09"
+    },
+    "C.9": {
+      "estado": "ESTA",
+      "evidencia": "confianzaExtraccion por línea",
+      "fecha": "2026-09-09"
+    },
+    "C.10": {
+      "estado": "ESTA",
+      "evidencia": "paginaNumero trazabilidad en línea",
+      "fecha": "2026-09-09"
+    },
+    "C.11": {
+      "estado": "ESTA",
+      "evidencia": "openai-provider PDF multipágina balance 8 col",
+      "fecha": "2026-09-09"
+    },
+    "C.12": {
+      "estado": "ESTA",
+      "evidencia": "Prompt balance clasificado + merge páginas",
+      "fecha": "2026-09-09"
+    },
+    "C.13": {
+      "estado": "ESTA",
+      "evidencia": "Fixture/mock estado resultados + prompt EERR",
+      "fecha": "2026-09-09"
+    },
+    "C.14": {
+      "estado": "ESTA",
+      "evidencia": "extractNotas en schema + prompt notas",
+      "fecha": "2026-09-09"
+    },
+    "C.15": {
+      "estado": "ESTA",
+      "evidencia": "parseMontoChileno + log normalización CLP",
+      "fecha": "2026-09-09"
+    },
+    "C.16": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría extraccion_completada",
+      "fecha": "2026-09-09"
+    },
+    "C.17": {
+      "estado": "ESTA",
+      "evidencia": "extractMock intercambiable",
+      "fecha": "2026-09-09"
+    },
+    "C.18": {
+      "estado": "ESTA",
+      "evidencia": "Cola ffa-extract async",
+      "fecha": "2026-09-09"
+    },
+    "C.19": {
+      "estado": "ESTA",
+      "evidencia": "Reintento backoff en processExtract",
+      "fecha": "2026-09-09"
+    },
+    "C.20": {
+      "estado": "ESTA",
+      "evidencia": "Caso permanece en cola hasta agotar reintentos",
+      "fecha": "2026-09-09"
+    },
+    "C.21": {
+      "estado": "ESTA",
+      "evidencia": "fixture IFRS ejemplo + mock provider",
+      "fecha": "2026-09-09"
+    },
+    "C.22": {
+      "estado": "ESTA",
+      "evidencia": "extractNotas preservadas en documento",
+      "fecha": "2026-09-09"
+    },
+    "D.1": {
+      "estado": "ESTA",
+      "evidencia": "Detect moneda CLP en normalize",
+      "fecha": "2026-09-09"
+    },
+    "D.2": {
+      "estado": "ESTA",
+      "evidencia": "Detect escala miles + multiplier",
+      "fecha": "2026-09-09"
+    },
+    "D.3": {
+      "estado": "ESTA",
+      "evidencia": "periodo en extractMetadata → caso.periodo",
+      "fecha": "2026-09-09"
+    },
+    "D.4": {
+      "estado": "ESTA",
+      "evidencia": "RUT/razón social extractMetadata → contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "D.5": {
+      "estado": "ESTA",
+      "evidencia": "montoNormalizado en líneas",
+      "fecha": "2026-09-09"
+    },
+    "D.6": {
+      "estado": "ESTA",
+      "evidencia": "escala indeterminada → requiereRevision",
+      "fecha": "2026-09-09"
+    },
+    "D.7": {
+      "estado": "ESTA",
+      "evidencia": "evaluarEscala magnitud normalize-metadata",
+      "fecha": "2026-09-09"
+    },
+    "D.8": {
+      "estado": "ESTA",
+      "evidencia": "signoAplicado convención signo",
+      "fecha": "2026-09-09"
+    },
+    "D.9": {
+      "estado": "ESTA",
+      "evidencia": "denominacionNormalizada sin perder original",
+      "fecha": "2026-09-09"
+    },
+    "D.10": {
+      "estado": "ESTA",
+      "evidencia": "Metadatos caso en normalize",
+      "fecha": "2026-09-09"
+    },
+    "D.11": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /casos/:id/metadatos + UI revisión",
+      "fecha": "2026-09-09"
+    },
+    "D.12": {
+      "estado": "ESTA",
+      "evidencia": "revalidarCaso RUT/razón social vs contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "D.13": {
+      "estado": "ESTA",
+      "evidencia": "normalizarPeriodo fechas ISO",
+      "fecha": "2026-09-09"
+    },
+    "D.14": {
+      "estado": "ESTA",
+      "evidencia": "esEjercicioDesactualizado en normalize",
+      "fecha": "2026-09-09"
+    },
+    "D.15": {
+      "estado": "ESTA",
+      "evidencia": "normalizeLog[] en documento",
+      "fecha": "2026-09-09"
+    },
+    "D.16": {
+      "estado": "ESTA",
+      "evidencia": "montoOriginal + montoNormalizado preservados",
+      "fecha": "2026-09-09"
+    },
+    "D.17": {
+      "estado": "ESTA",
+      "evidencia": "consolidarGrupo múltiples periodos",
+      "fecha": "2026-09-09"
+    },
+    "D.18": {
+      "estado": "ESTA",
+      "evidencia": "regla pasivo+patrimonio mezclados rules-extended",
+      "fecha": "2026-09-09"
+    },
+    "E.1": {
+      "estado": "ESTA",
+      "evidencia": "Plan cuentas único — API + model",
+      "fecha": "2026-09-09"
+    },
+    "E.2": {
+      "estado": "ESTA",
+      "evidencia": "Validación rubro pertenece plan del caso",
+      "fecha": "2026-09-09"
+    },
+    "E.3": {
+      "estado": "ESTA",
+      "evidencia": "Versionado plan cuentas",
+      "fecha": "2026-09-09"
+    },
+    "E.4": {
+      "estado": "ESTA",
+      "evidencia": "planCuentasVersionId en ficha aprobada",
+      "fecha": "2026-09-09"
+    },
+    "E.5": {
+      "estado": "ESTA",
+      "evidencia": "Admin UI plan cuentas",
+      "fecha": "2026-09-09"
+    },
+    "E.6": {
+      "estado": "ESTA",
+      "evidencia": "rubros patrimonio 3.3/3.4 en CSV seed",
+      "fecha": "2026-09-09"
+    },
+    "E.7": {
+      "estado": "ESTA",
+      "evidencia": "pasivo no corriente 2.2.x explícito",
+      "fecha": "2026-09-09"
+    },
+    "E.8": {
+      "estado": "ESTA",
+      "evidencia": "RubroInstitucional.corriente en seed CSV",
+      "fecha": "2026-09-09"
+    },
+    "E.9": {
+      "estado": "ESTA",
+      "evidencia": "convencionSigno en rubro + RubroTree + PATCH",
+      "fecha": "2026-09-09"
+    },
+    "E.10": {
+      "estado": "ESTA",
+      "evidencia": "aliases rubro + match en classify",
+      "fecha": "2026-09-09"
+    },
+    "E.11": {
+      "estado": "ESTA",
+      "evidencia": "reglas notas margen en seed reglas",
+      "fecha": "2026-09-09"
+    },
+    "E.12": {
+      "estado": "ESTA",
+      "evidencia": "estadoFinanciero por rubro en schema",
+      "fecha": "2026-09-09"
+    },
+    "E.13": {
+      "estado": "ESTA",
+      "evidencia": "Export/import CSV rubros",
+      "fecha": "2026-09-09"
+    },
+    "E.14": {
+      "estado": "ESTA",
+      "evidencia": "Import CSV fixtures",
+      "fecha": "2026-09-09"
+    },
+    "E.15": {
+      "estado": "ESTA",
+      "evidencia": "Workflow aprobación formal",
+      "fecha": "2026-09-09"
+    },
+    "E.16": {
+      "estado": "ESTA",
+      "evidencia": "PlanCuentasHistorialModel + GET historial",
+      "fecha": "2026-09-09"
+    },
+    "E.17": {
+      "estado": "ESTA",
+      "evidencia": "Bloqueo edición versión aprobada",
+      "fecha": "2026-09-09"
+    },
+    "E.18": {
+      "estado": "ESTA",
+      "evidencia": "validatePlanStructure patrimonio/pasivo separados",
+      "fecha": "2026-09-09"
+    },
+    "F.1": {
+      "estado": "ESTA",
+      "evidencia": "classifyLines asigna rubroInstitucionalId",
+      "fecha": "2026-09-09"
+    },
+    "F.2": {
+      "estado": "ESTA",
+      "evidencia": "Reglas patron_denominacion versionadas",
+      "fecha": "2026-09-09"
+    },
+    "F.3": {
+      "estado": "ESTA",
+      "evidencia": "Fallback match semántico por nombre rubro",
+      "fecha": "2026-09-09"
+    },
+    "F.4": {
+      "estado": "ESTA",
+      "evidencia": "similitudTexto Levenshtein en matchSemantico",
+      "fecha": "2026-09-09"
+    },
+    "F.5": {
+      "estado": "ESTA",
+      "evidencia": "resolveAsistida + candidatosAsistidos en classify",
+      "fecha": "2026-09-09"
+    },
+    "F.6": {
+      "estado": "ESTA",
+      "evidencia": "clasificación restringida a rubros plan vigente",
+      "fecha": "2026-09-09"
+    },
+    "F.7": {
+      "estado": "ESTA",
+      "evidencia": "confianzaClasificacion por línea",
+      "fecha": "2026-09-09"
+    },
+    "F.8": {
+      "estado": "ESTA",
+      "evidencia": "requiereRevision bajo umbral",
+      "fecha": "2026-09-09"
+    },
+    "F.9": {
+      "estado": "ESTA",
+      "evidencia": "detectRetiroEnActivo clasificación inconsistente",
+      "fecha": "2026-09-09"
+    },
+    "F.10": {
+      "estado": "ESTA",
+      "evidencia": "clasificacionPropuesta en línea",
+      "fecha": "2026-09-09"
+    },
+    "F.11": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /casos/:id/lineas/:lid reclasificación manual",
+      "fecha": "2026-09-09"
+    },
+    "F.12": {
+      "estado": "ESTA",
+      "evidencia": "motivo + auditoría linea_reclasificada",
+      "fecha": "2026-09-09"
+    },
+    "F.13": {
+      "estado": "ESTA",
+      "evidencia": "ReglasClasificacionVersion en MongoDB",
+      "fecha": "2026-09-09"
+    },
+    "F.14": {
+      "estado": "ESTA",
+      "evidencia": "confianzaGlobal agregada en caso",
+      "fecha": "2026-09-09"
+    },
+    "F.15": {
+      "estado": "ESTA",
+      "evidencia": "candidatos ambiguos → baja confianza",
+      "fecha": "2026-09-09"
+    },
+    "F.16": {
+      "estado": "ESTA",
+      "evidencia": "criterios contribuyente priorizados en classifyLines",
+      "fecha": "2026-09-09"
+    },
+    "F.17": {
+      "estado": "ESTA",
+      "evidencia": "puedeAprobarFicha bloqueo",
+      "fecha": "2026-09-09"
+    },
+    "F.18": {
+      "estado": "ESTA",
+      "evidencia": "POST /lineas/reclasificar-masiva por denominación",
+      "fecha": "2026-09-09"
+    },
+    "F.19": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría clasificacion_completada",
+      "fecha": "2026-09-09"
+    },
+    "F.20": {
+      "estado": "ESTA",
+      "evidencia": "POST /admin/clasificacion/prueba dry-run",
+      "fecha": "2026-09-09"
+    },
+    "F.21": {
+      "estado": "ESTA",
+      "evidencia": "retiros en activo detectRetiroEnActivo",
+      "fecha": "2026-09-09"
+    },
+    "F.22": {
+      "estado": "ESTA",
+      "evidencia": "origenClasificacion criterio_contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "G.1": {
+      "estado": "ESTA",
+      "evidencia": "guardarCriterioDesdeLinea al aprobar/corregir",
+      "fecha": "2026-09-09"
+    },
+    "G.2": {
+      "estado": "ESTA",
+      "evidencia": "Criterio: contribuyente + denominación + rubro",
+      "fecha": "2026-09-09"
+    },
+    "G.3": {
+      "estado": "ESTA",
+      "evidencia": "matchCriterioContribuyente en classifyLines",
+      "fecha": "2026-09-09"
+    },
+    "G.4": {
+      "estado": "ESTA",
+      "evidencia": "Criterios específicos por contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "G.5": {
+      "estado": "ESTA",
+      "evidencia": "aprobadoPor y aprobadoAt en schema",
+      "fecha": "2026-09-09"
+    },
+    "G.6": {
+      "estado": "ESTA",
+      "evidencia": "GET criterios-historicos y /criterios",
+      "fecha": "2026-09-09"
+    },
+    "G.7": {
+      "estado": "ESTA",
+      "evidencia": "PATCH criterios version al cambiar rubro",
+      "fecha": "2026-09-09"
+    },
+    "G.8": {
+      "estado": "ESTA",
+      "evidencia": "GET metricas-aprendizaje reducción revisión",
+      "fecha": "2026-09-09"
+    },
+    "G.9": {
+      "estado": "ESTA",
+      "evidencia": "Criterios solo del contribuyente del caso",
+      "fecha": "2026-09-09"
+    },
+    "G.10": {
+      "estado": "ESTA",
+      "evidencia": "Worker classify carga criterios activos",
+      "fecha": "2026-09-09"
+    },
+    "G.11": {
+      "estado": "ESTA",
+      "evidencia": "Upsert criterio en cada corrección validada",
+      "fecha": "2026-09-09"
+    },
+    "G.12": {
+      "estado": "ESTA",
+      "evidencia": "GET casos/:id/criterios-aplicados",
+      "fecha": "2026-09-09"
+    },
+    "H.1": {
+      "estado": "ESTA",
+      "evidencia": "Validación cuadratura activo=pasivo+patrimonio",
+      "fecha": "2026-09-09"
+    },
+    "H.2": {
+      "estado": "ESTA",
+      "evidencia": "COHERENCIA_ESTADOS mixto rules-extended",
+      "fecha": "2026-09-09"
+    },
+    "H.3": {
+      "estado": "ESTA",
+      "evidencia": "INTEGRIDAD_AGRUPACION subtotales",
+      "fecha": "2026-09-09"
+    },
+    "H.4": {
+      "estado": "ESTA",
+      "evidencia": "patrimonio/resultado mal ubicado distorsiona indicadores",
+      "fecha": "2026-09-09"
+    },
+    "H.5": {
+      "estado": "ESTA",
+      "evidencia": "ESCALA_NO_DECLARADA validación",
+      "fecha": "2026-09-09"
+    },
+    "H.6": {
+      "estado": "ESTA",
+      "evidencia": "Detección tipeo denominaciones",
+      "fecha": "2026-09-09"
+    },
+    "H.7": {
+      "estado": "ESTA",
+      "evidencia": "EJERCICIO_DESACTUALIZADO validación",
+      "fecha": "2026-09-09"
+    },
+    "H.8": {
+      "estado": "ESTA",
+      "evidencia": "semáforo verde/amarillo/rojo en caso",
+      "fecha": "2026-09-09"
+    },
+    "H.9": {
+      "estado": "ESTA",
+      "evidencia": "Bloqueo informe si no aprobado",
+      "fecha": "2026-09-09"
+    },
+    "H.10": {
+      "estado": "ESTA",
+      "evidencia": "Filtros repositorio q/ejercicio/canal/estado/fecha",
+      "fecha": "2026-09-09"
+    },
+    "H.11": {
+      "estado": "ESTA",
+      "evidencia": "Estado pendiente_calidad en pipeline",
+      "fecha": "2026-09-09"
+    },
+    "H.12": {
+      "estado": "ESTA",
+      "evidencia": "metadata.origen documento vs sistema",
+      "fecha": "2026-09-09"
+    },
+    "H.13": {
+      "estado": "ESTA",
+      "evidencia": "PATCH validaciones confirmar analista",
+      "fecha": "2026-09-09"
+    },
+    "H.14": {
+      "estado": "ESTA",
+      "evidencia": "revalidarCaso en revision.ts",
+      "fecha": "2026-09-09"
+    },
+    "H.15": {
+      "estado": "ESTA",
+      "evidencia": "puedeAprobarFicha inconsistencias sin confirmar",
+      "fecha": "2026-09-09"
+    },
+    "H.16": {
+      "estado": "ESTA",
+      "evidencia": "DEBITO_CREDITO balance 8 col",
+      "fecha": "2026-09-09"
+    },
+    "H.17": {
+      "estado": "ESTA",
+      "evidencia": "subtotales vs componentes en rules-extended",
+      "fecha": "2026-09-09"
+    },
+    "H.18": {
+      "estado": "ESTA",
+      "evidencia": "GET /casos/:id/validaciones/export",
+      "fecha": "2026-09-09"
+    },
+    "H.19": {
+      "estado": "ESTA",
+      "evidencia": "pct activo mal clasificado",
+      "fecha": "2026-09-09"
+    },
+    "H.20": {
+      "estado": "ESTA",
+      "evidencia": "confianza promedio por línea",
+      "fecha": "2026-09-09"
+    },
+    "I.1": {
+      "estado": "ESTA",
+      "evidencia": "Umbral configurable en ConfiguracionSistema",
+      "fecha": "2026-09-09"
+    },
+    "I.2": {
+      "estado": "ESTA",
+      "evidencia": "Default umbral 85% seed",
+      "fecha": "2026-09-09"
+    },
+    "I.3": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /config umbralConfianza AdminView",
+      "fecha": "2026-09-09"
+    },
+    "I.4": {
+      "estado": "ESTA",
+      "evidencia": "umbralAplicado en classify/validate configSnapshot",
+      "fecha": "2026-09-09"
+    },
+    "I.5": {
+      "estado": "ESTA",
+      "evidencia": "requiereRevision en líneas bajo umbral",
+      "fecha": "2026-09-09"
+    },
+    "I.6": {
+      "estado": "ESTA",
+      "evidencia": "confianzaGlobal < umbral → semáforo amarillo",
+      "fecha": "2026-09-09"
+    },
+    "I.7": {
+      "estado": "ESTA",
+      "evidencia": "elegibleAutoAprobacion en validate worker",
+      "fecha": "2026-09-09"
+    },
+    "I.8": {
+      "estado": "ESTA",
+      "evidencia": "confianzaGlobal + confianzaClasificacion por línea",
+      "fecha": "2026-09-09"
+    },
+    "I.9": {
+      "estado": "ESTA",
+      "evidencia": "UI líneas revision highlight + filtro soloRevision",
+      "fecha": "2026-09-09"
+    },
+    "I.10": {
+      "estado": "ESTA",
+      "evidencia": "finalizarInforme verifica puedeAprobarFicha",
+      "fecha": "2026-09-09"
+    },
+    "I.11": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría derivación revisión en pipeline",
+      "fecha": "2026-09-09"
+    },
+    "I.12": {
+      "estado": "ESTA",
+      "evidencia": "GET /config/umbral/historial + UI AdminView",
+      "fecha": "2026-09-09"
+    },
+    "I.13": {
+      "estado": "ESTA",
+      "evidencia": "resolucionAutomaticaMensual en KPIs",
+      "fecha": "2026-09-09"
+    },
+    "I.14": {
+      "estado": "ESTA",
+      "evidencia": "tendenciaResolucionAutomaticaPct + criterios en KPIs",
+      "fecha": "2026-09-09"
+    },
+    "J.1": {
+      "estado": "ESTA",
+      "evidencia": "GET lineas?soloRevision=true",
+      "fecha": "2026-09-09"
+    },
+    "J.2": {
+      "estado": "ESTA",
+      "evidencia": "RevisionSplitView documento + líneas lado a lado",
+      "fecha": "2026-09-09"
+    },
+    "J.3": {
+      "estado": "ESTA",
+      "evidencia": "RevisionSplitView bbox highlight PDF",
+      "fecha": "2026-09-09"
+    },
+    "J.4": {
+      "estado": "ESTA",
+      "evidencia": "Navegación páginas PDF pdfjs-dist",
+      "fecha": "2026-09-09"
+    },
+    "J.5": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /casos/:id/lineas/:lid corrección",
+      "fecha": "2026-09-09"
+    },
+    "J.6": {
+      "estado": "ESTA",
+      "evidencia": "POST lineas/:lid/aprobar clasificación propuesta",
+      "fecha": "2026-09-09"
+    },
+    "J.7": {
+      "estado": "ESTA",
+      "evidencia": "PATCH reclasificación rubroInstitucionalId manual",
+      "fecha": "2026-09-09"
+    },
+    "J.8": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría linea_corregida / linea_aprobada",
+      "fecha": "2026-09-09"
+    },
+    "J.9": {
+      "estado": "ESTA",
+      "evidencia": "CriterioAprobado upsert desde corrección",
+      "fecha": "2026-09-09"
+    },
+    "J.10": {
+      "estado": "ESTA",
+      "evidencia": "revalidarCaso tras cada corrección",
+      "fecha": "2026-09-09"
+    },
+    "J.11": {
+      "estado": "ESTA",
+      "evidencia": "Validaciones + semáforo en RevisionView",
+      "fecha": "2026-09-09"
+    },
+    "J.12": {
+      "estado": "ESTA",
+      "evidencia": "POST /aprobar-ficha genera FichaCanonica",
+      "fecha": "2026-09-09"
+    },
+    "J.13": {
+      "estado": "ESTA",
+      "evidencia": "puedeAprobarFicha bloquea pendientes/cuadratura",
+      "fecha": "2026-09-09"
+    },
+    "J.14": {
+      "estado": "ESTA",
+      "evidencia": "FichaHistorialModel + GET fichas/historial",
+      "fecha": "2026-09-09"
+    },
+    "J.15": {
+      "estado": "ESTA",
+      "evidencia": "POST devolver-reprocesamiento analista",
+      "fecha": "2026-09-09"
+    },
+    "J.16": {
+      "estado": "ESTA",
+      "evidencia": "GET /casos filtros contribuyente/semaforo/cola/fecha",
+      "fecha": "2026-09-09"
+    },
+    "J.17": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /casos/:id/asignar",
+      "fecha": "2026-09-09"
+    },
+    "J.18": {
+      "estado": "ESTA",
+      "evidencia": "calcularTiemposCaso + tiempos en CasoDto",
+      "fecha": "2026-09-09"
+    },
+    "J.19": {
+      "estado": "ESTA",
+      "evidencia": "Optimistic lock caso.version en PATCH/aprobar",
+      "fecha": "2026-09-09"
+    },
+    "J.20": {
+      "estado": "ESTA",
+      "evidencia": "Observaciones analista en aprobar-ficha",
+      "fecha": "2026-09-09"
+    },
+    "J.21": {
+      "estado": "ESTA",
+      "evidencia": "POST /lineas/manual alta manual",
+      "fecha": "2026-09-09"
+    },
+    "J.22": {
+      "estado": "ESTA",
+      "evidencia": "InformeView editor apartados manuales",
+      "fecha": "2026-09-09"
+    },
+    "J.23": {
+      "estado": "ESTA",
+      "evidencia": "InformeView botón Descargar Word",
+      "fecha": "2026-09-09"
+    },
+    "J.24": {
+      "estado": "ESTA",
+      "evidencia": "auditoria informe_apartados_manuales",
+      "fecha": "2026-09-09"
+    },
+    "K.1": {
+      "estado": "ESTA",
+      "evidencia": "FichaCanonica generada al aprobar",
+      "fecha": "2026-09-09"
+    },
+    "K.2": {
+      "estado": "ESTA",
+      "evidencia": "Balance clasificado en ficha.detalle",
+      "fecha": "2026-09-09"
+    },
+    "K.3": {
+      "estado": "ESTA",
+      "evidencia": "Estado resultados en ficha",
+      "fecha": "2026-09-09"
+    },
+    "K.4": {
+      "estado": "ESTA",
+      "evidencia": "Modelo independiente del PDF origen",
+      "fecha": "2026-09-09"
+    },
+    "K.5": {
+      "estado": "ESTA",
+      "evidencia": "Estados borrador/aprobada en schema",
+      "fecha": "2026-09-09"
+    },
+    "K.6": {
+      "estado": "ESTA",
+      "evidencia": "validacionesResumen en ficha",
+      "fecha": "2026-09-09"
+    },
+    "K.7": {
+      "estado": "ESTA",
+      "evidencia": "Campo version incrementa",
+      "fecha": "2026-09-09"
+    },
+    "K.8": {
+      "estado": "ESTA",
+      "evidencia": "GET /fichas/:id y /fichas/caso/:id",
+      "fecha": "2026-09-09"
+    },
+    "K.9": {
+      "estado": "ESTA",
+      "evidencia": "GET /fichas/:id/export/json",
+      "fecha": "2026-09-09"
+    },
+    "K.10": {
+      "estado": "ESTA",
+      "evidencia": "lineasIds en detalle rubro",
+      "fecha": "2026-09-09"
+    },
+    "K.11": {
+      "estado": "ESTA",
+      "evidencia": "Totales AC/AN/PC/PN/patrimonio",
+      "fecha": "2026-09-09"
+    },
+    "K.12": {
+      "estado": "ESTA",
+      "evidencia": "Convención signo en totales",
+      "fecha": "2026-09-09"
+    },
+    "K.13": {
+      "estado": "ESTA",
+      "evidencia": "consolidarCasos mismo contribuyente/ejercicio + UI revisión",
+      "fecha": "2026-09-09"
+    },
+    "K.14": {
+      "estado": "ESTA",
+      "evidencia": "observaciones analista en ficha",
+      "fecha": "2026-09-09"
+    },
+    "K.15": {
+      "estado": "ESTA",
+      "evidencia": "assertFichaEditable bloquea edición ficha aprobada",
+      "fecha": "2026-09-09"
+    },
+    "L.1": {
+      "estado": "ESTA",
+      "evidencia": "computeIndicators mathjs",
+      "fecha": "2026-09-09"
+    },
+    "L.2": {
+      "estado": "ESTA",
+      "evidencia": "Indicador LIQ_CORRIENTE liquidez",
+      "fecha": "2026-09-09"
+    },
+    "L.3": {
+      "estado": "ESTA",
+      "evidencia": "Indicador END_TOTAL endeudamiento",
+      "fecha": "2026-09-09"
+    },
+    "L.4": {
+      "estado": "ESTA",
+      "evidencia": "Indicador MARGEN_BRUTO rentabilidad",
+      "fecha": "2026-09-09"
+    },
+    "L.5": {
+      "estado": "ESTA",
+      "evidencia": "Indicador CAP_TRABAJO capital trabajo",
+      "fecha": "2026-09-09"
+    },
+    "L.6": {
+      "estado": "ESTA",
+      "evidencia": "Indicador COBERTURA_PAT factoring",
+      "fecha": "2026-09-09"
+    },
+    "L.7": {
+      "estado": "ESTA",
+      "evidencia": "IndicadorDefinicionVersion versionada",
+      "fecha": "2026-09-09"
+    },
+    "L.8": {
+      "estado": "ESTA",
+      "evidencia": "definicionVersionId en IndicadorCalculado",
+      "fecha": "2026-09-09"
+    },
+    "L.9": {
+      "estado": "ESTA",
+      "evidencia": "Seed indicadores v1.0.0",
+      "fecha": "2026-09-09"
+    },
+    "L.10": {
+      "estado": "ESTA",
+      "evidencia": "lineasParticipantes en cálculo",
+      "fecha": "2026-09-09"
+    },
+    "L.11": {
+      "estado": "ESTA",
+      "evidencia": "POST recalcular-indicadores",
+      "fecha": "2026-09-09"
+    },
+    "L.12": {
+      "estado": "ESTA",
+      "evidencia": "Indicadores en InformeView",
+      "fecha": "2026-09-09"
+    },
+    "L.13": {
+      "estado": "ESTA",
+      "evidencia": "calculable:false + error si faltan rubros",
+      "fecha": "2026-09-09"
+    },
+    "L.14": {
+      "estado": "ESTA",
+      "evidencia": "GET indicadores por ficha",
+      "fecha": "2026-09-09"
+    },
+    "L.15": {
+      "estado": "ESTA",
+      "evidencia": "Validación obligatorios en finalizar informe",
+      "fecha": "2026-09-09"
+    },
+    "M.1": {
+      "estado": "ESTA",
+      "evidencia": "PlantillaInformeVersion institucional",
+      "fecha": "2026-09-09"
+    },
+    "M.2": {
+      "estado": "ESTA",
+      "evidencia": "Apartados auto balance/indicadores",
+      "fecha": "2026-09-09"
+    },
+    "M.3": {
+      "estado": "ESTA",
+      "evidencia": "Apartados manuales analisis/recomendacion",
+      "fecha": "2026-09-09"
+    },
+    "M.4": {
+      "estado": "ESTA",
+      "evidencia": "lineasIds trazabilidad en ficha detalle",
+      "fecha": "2026-09-09"
+    },
+    "M.5": {
+      "estado": "ESTA",
+      "evidencia": "tabla_indicadores en HTML",
+      "fecha": "2026-09-09"
+    },
+    "M.6": {
+      "estado": "ESTA",
+      "evidencia": "tabla_inconsistencias en informe HTML/DOCX",
+      "fecha": "2026-09-09"
+    },
+    "M.7": {
+      "estado": "ESTA",
+      "evidencia": "Plantilla versionada MongoDB",
+      "fecha": "2026-09-09"
+    },
+    "M.8": {
+      "estado": "ESTA",
+      "evidencia": "Seed plantilla v1.0.0",
+      "fecha": "2026-09-09"
+    },
+    "M.9": {
+      "estado": "ESTA",
+      "evidencia": "plantillaVigenteId en config",
+      "fecha": "2026-09-09"
+    },
+    "M.10": {
+      "estado": "ESTA",
+      "evidencia": "POST export/docx + download Word S3",
+      "fecha": "2026-09-09"
+    },
+    "M.11": {
+      "estado": "ESTA",
+      "evidencia": "generadoPor/generadoAt/fichaVersion",
+      "fecha": "2026-09-09"
+    },
+    "M.12": {
+      "estado": "ESTA",
+      "evidencia": "docx con balance e indicadores",
+      "fecha": "2026-09-09"
+    },
+    "M.13": {
+      "estado": "ESTA",
+      "evidencia": "Estados borrador/preliminar/final",
+      "fecha": "2026-09-09"
+    },
+    "M.14": {
+      "estado": "ESTA",
+      "evidencia": "Solo caso aprobado genera informe",
+      "fecha": "2026-09-09"
+    },
+    "M.15": {
+      "estado": "ESTA",
+      "evidencia": "Metadatos caso/contribuyente en template",
+      "fecha": "2026-09-09"
+    },
+    "M.16": {
+      "estado": "ESTA",
+      "evidencia": "secciones fija/variable/auto",
+      "fecha": "2026-09-09"
+    },
+    "M.17": {
+      "estado": "ESTA",
+      "evidencia": "PATCH apartadosManuales borrador",
+      "fecha": "2026-09-09"
+    },
+    "M.18": {
+      "estado": "ESTA",
+      "evidencia": "POST finalizar valida obligatorios",
+      "fecha": "2026-09-09"
+    },
+    "M.19": {
+      "estado": "ESTA",
+      "evidencia": "Template HTML estructura comité",
+      "fecha": "2026-09-09"
+    },
+    "N.1": {
+      "estado": "ESTA",
+      "evidencia": "FichaCanonica aprobada persistida por contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "N.2": {
+      "estado": "ESTA",
+      "evidencia": "GET historial-fichas ordenado por ejercicio",
+      "fecha": "2026-09-09"
+    },
+    "N.3": {
+      "estado": "ESTA",
+      "evidencia": "Historial incluye todos casos aprobados contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "N.4": {
+      "estado": "ESTA",
+      "evidencia": "GET /comparacion/ejercicios N vs N-1",
+      "fecha": "2026-09-09"
+    },
+    "N.5": {
+      "estado": "ESTA",
+      "evidencia": "GET /comparacion/cartera mismo plan cuentas",
+      "fecha": "2026-09-09"
+    },
+    "N.6": {
+      "estado": "ESTA",
+      "evidencia": "detectarDeterioros liquidez/endeudamiento/semaforo",
+      "fecha": "2026-09-09"
+    },
+    "N.7": {
+      "estado": "ESTA",
+      "evidencia": "GET /repositorio listado aprobados",
+      "fecha": "2026-09-09"
+    },
+    "N.8": {
+      "estado": "ESTA",
+      "evidencia": "RepositorioView consulta histórica",
+      "fecha": "2026-09-09"
+    },
+    "N.9": {
+      "estado": "ESTA",
+      "evidencia": "GET /repositorio/export.csv",
+      "fecha": "2026-09-09"
+    },
+    "N.10": {
+      "estado": "ESTA",
+      "evidencia": "documentoId y nombre en repositorio",
+      "fecha": "2026-09-09"
+    },
+    "N.11": {
+      "estado": "ESTA",
+      "evidencia": "ComparacionView línea de tiempo",
+      "fecha": "2026-09-09"
+    },
+    "N.12": {
+      "estado": "ESTA",
+      "evidencia": "POST consolidacion/grupo multi-empresa",
+      "fecha": "2026-09-09"
+    },
+    "N.13": {
+      "estado": "ESTA",
+      "evidencia": "GET criterios-historicos por contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "N.14": {
+      "estado": "ESTA",
+      "evidencia": "Repositorio excluye rechazados por defecto",
+      "fecha": "2026-09-09"
+    },
+    "N.15": {
+      "estado": "ESTA",
+      "evidencia": "ConsolidacionView N empresas × M periodos",
+      "fecha": "2026-09-09"
+    },
+    "N.16": {
+      "estado": "ESTA",
+      "evidencia": "items[] trazabilidad individual por ficha",
+      "fecha": "2026-09-09"
+    },
+    "N.17": {
+      "estado": "ESTA",
+      "evidencia": "compararCartera casos comparables",
+      "fecha": "2026-09-09"
+    },
+    "O.1": {
+      "estado": "ESTA",
+      "evidencia": "Comparación variación balance e indicadores",
+      "fecha": "2026-09-09"
+    },
+    "O.2": {
+      "estado": "ESTA",
+      "evidencia": "Variación pct en metricas comparadas",
+      "fecha": "2026-09-09"
+    },
+    "O.3": {
+      "estado": "ESTA",
+      "evidencia": "totales agregados balance grupo",
+      "fecha": "2026-09-09"
+    },
+    "O.4": {
+      "estado": "ESTA",
+      "evidencia": "indicadoresAgregados promedio cartera",
+      "fecha": "2026-09-09"
+    },
+    "O.5": {
+      "estado": "ESTA",
+      "evidencia": "Detección deterioro automático",
+      "fecha": "2026-09-09"
+    },
+    "O.6": {
+      "estado": "ESTA",
+      "evidencia": "Error aislado por caso en upload",
+      "fecha": "2026-09-09"
+    },
+    "O.7": {
+      "estado": "ESTA",
+      "evidencia": "Backoff exponential BullMQ",
+      "fecha": "2026-09-09"
+    },
+    "O.8": {
+      "estado": "ESTA",
+      "evidencia": "reintentosMaxPorEtapa por etapa en colas API/worker",
+      "fecha": "2026-09-09"
+    },
+    "O.9": {
+      "estado": "ESTA",
+      "evidencia": "procesamiento.etapaActual por etapa",
+      "fecha": "2026-09-09"
+    },
+    "O.10": {
+      "estado": "ESTA",
+      "evidencia": "asunto notificación auto-aprobación",
+      "fecha": "2026-09-09"
+    },
+    "O.11": {
+      "estado": "ESTA",
+      "evidencia": "procesamientoPausado + assertCasoNoPausado worker",
+      "fecha": "2026-09-09"
+    },
+    "O.12": {
+      "estado": "ESTA",
+      "evidencia": "PATCH prioridad + sort cola por prioridad",
+      "fecha": "2026-09-09"
+    },
+    "O.13": {
+      "estado": "ESTA",
+      "evidencia": "apps/worker separado de API",
+      "fecha": "2026-09-09"
+    },
+    "O.14": {
+      "estado": "ESTA",
+      "evidencia": "GET /health/ready mongodb+redis+storage",
+      "fecha": "2026-09-09"
+    },
+    "O.15": {
+      "estado": "ESTA",
+      "evidencia": "Cola Redis persistente",
+      "fecha": "2026-09-09"
+    },
+    "O.16": {
+      "estado": "ESTA",
+      "evidencia": "reclasificarValidarCaso sin re-extract",
+      "fecha": "2026-09-09"
+    },
+    "O.17": {
+      "estado": "ESTA",
+      "evidencia": "Recalcular indicadores sin pipeline",
+      "fecha": "2026-09-09"
+    },
+    "O.18": {
+      "estado": "ESTA",
+      "evidencia": "Upload encola y retorna 201",
+      "fecha": "2026-09-09"
+    },
+    "O.19": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría con payload diagnóstico por etapa",
+      "fecha": "2026-09-09"
+    },
+    "P.1": {
+      "estado": "ESTA",
+      "evidencia": "tabla_trazabilidad doc/página por cifra en informe",
+      "fecha": "2026-09-09"
+    },
+    "P.2": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría decisiones automáticas pipeline",
+      "fecha": "2026-09-09"
+    },
+    "P.3": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría correcciones con actorId usuario",
+      "fecha": "2026-09-09"
+    },
+    "P.4": {
+      "estado": "ESTA",
+      "evidencia": "configSnapshot en eventos auditoría",
+      "fecha": "2026-09-09"
+    },
+    "P.5": {
+      "estado": "ESTA",
+      "evidencia": "definicionVersionId auditoría indicadores",
+      "fecha": "2026-09-09"
+    },
+    "P.6": {
+      "estado": "ESTA",
+      "evidencia": "plantillaVersionId en informe",
+      "fecha": "2026-09-09"
+    },
+    "P.7": {
+      "estado": "ESTA",
+      "evidencia": "storageKeyDocx en InformeComite",
+      "fecha": "2026-09-09"
+    },
+    "P.8": {
+      "estado": "ESTA",
+      "evidencia": "GET /admin/auditoria filtros fecha/actor/contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "P.9": {
+      "estado": "ESTA",
+      "evidencia": "GET /casos/:id/auditoria/export bundle JSON",
+      "fecha": "2026-09-09"
+    },
+    "P.10": {
+      "estado": "ESTA",
+      "evidencia": "GET documento file trazabilidad origen",
+      "fecha": "2026-09-09"
+    },
+    "P.11": {
+      "estado": "ESTA",
+      "evidencia": "Eventos recepción→procesamiento→revisión",
+      "fecha": "2026-09-09"
+    },
+    "P.12": {
+      "estado": "ESTA",
+      "evidencia": "registrarAuditoria config_actualizada PATCH /config",
+      "fecha": "2026-09-09"
+    },
+    "P.13": {
+      "estado": "ESTA",
+      "evidencia": "gate trazabilidad en puedeAprobarFicha",
+      "fecha": "2026-09-09"
+    },
+    "P.14": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría asociada a casoId",
+      "fecha": "2026-09-09"
+    },
+    "Q.1": {
+      "estado": "ESTA",
+      "evidencia": "apps/web — SPA Vue 3 + layout",
+      "fecha": "2026-09-09"
+    },
+    "Q.2": {
+      "estado": "ESTA",
+      "evidencia": "CasosView portal de carga",
+      "fecha": "2026-09-09"
+    },
+    "Q.3": {
+      "estado": "ESTA",
+      "evidencia": "Estado pipeline visible en bandeja casos",
+      "fecha": "2026-09-09"
+    },
+    "Q.4": {
+      "estado": "ESTA",
+      "evidencia": "filtro pendientesAnalista en listado casos",
+      "fecha": "2026-09-09"
+    },
+    "Q.5": {
+      "estado": "ESTA",
+      "evidencia": "Listado casos recientes GET /casos",
+      "fecha": "2026-09-09"
+    },
+    "Q.6": {
+      "estado": "ESTA",
+      "evidencia": "GET /buscar global casos/contribuyentes + UI",
+      "fecha": "2026-09-09"
+    },
+    "Q.7": {
+      "estado": "ESTA",
+      "evidencia": "DashboardView KPIs volumen",
+      "fecha": "2026-09-09"
+    },
+    "Q.8": {
+      "estado": "ESTA",
+      "evidencia": "RepositorioView búsqueda RUT/razón social",
+      "fecha": "2026-09-09"
+    },
+    "Q.9": {
+      "estado": "ESTA",
+      "evidencia": "Export CSV desde repositorio UI",
+      "fecha": "2026-09-09"
+    },
+    "Q.10": {
+      "estado": "ESTA",
+      "evidencia": "Link comparación desde repositorio",
+      "fecha": "2026-09-09"
+    },
+    "Q.11": {
+      "estado": "ESTA",
+      "evidencia": "GET /ingesta/email sin cuenta configurada",
+      "fecha": "2026-09-09"
+    },
+    "Q.12": {
+      "estado": "ESTA",
+      "evidencia": "Login JWT + store auth",
+      "fecha": "2026-09-09"
+    },
+    "Q.13": {
+      "estado": "ESTA",
+      "evidencia": "badges pausado/prioridad en CasosView",
+      "fecha": "2026-09-09"
+    },
+    "Q.14": {
+      "estado": "ESTA",
+      "evidencia": "GET progreso + SSE stream + barra CasosView",
+      "fecha": "2026-09-09"
+    },
+    "Q.15": {
+      "estado": "ESTA",
+      "evidencia": "Download informe HTML",
+      "fecha": "2026-09-09"
+    },
+    "R.1": {
+      "estado": "ESTA",
+      "evidencia": "CRUD /users AdminUsersView",
+      "fecha": "2026-09-09"
+    },
+    "R.2": {
+      "estado": "ESTA",
+      "evidencia": "PATCH umbral confianza AdminView",
+      "fecha": "2026-09-09"
+    },
+    "R.3": {
+      "estado": "ESTA",
+      "evidencia": "CRUD plan cuentas versions API",
+      "fecha": "2026-09-09"
+    },
+    "R.4": {
+      "estado": "ESTA",
+      "evidencia": "API /reglas/versions CRUD reglas",
+      "fecha": "2026-09-09"
+    },
+    "R.5": {
+      "estado": "ESTA",
+      "evidencia": "IndicadorDefinicionVersion admin seed",
+      "fecha": "2026-09-09"
+    },
+    "R.6": {
+      "estado": "ESTA",
+      "evidencia": "PlantillaInformeVersion admin seed",
+      "fecha": "2026-09-09"
+    },
+    "R.7": {
+      "estado": "ESTA",
+      "evidencia": "PATCH reintentosMaxPorEtapa config",
+      "fecha": "2026-09-09"
+    },
+    "R.8": {
+      "estado": "ESTA",
+      "evidencia": "emailIngesta schema + IMAP poll imap-ingest",
+      "fecha": "2026-09-09"
+    },
+    "R.9": {
+      "estado": "ESTA",
+      "evidencia": "PATCH notificacionFalloTemplate config",
+      "fecha": "2026-09-09"
+    },
+    "R.10": {
+      "estado": "ESTA",
+      "evidencia": "politicaIlegible config + preprocess worker",
+      "fecha": "2026-09-09"
+    },
+    "R.11": {
+      "estado": "ESTA",
+      "evidencia": "GET /admin/auditoria",
+      "fecha": "2026-09-09"
+    },
+    "R.12": {
+      "estado": "ESTA",
+      "evidencia": "GET /admin/colas BullMQ",
+      "fecha": "2026-09-09"
+    },
+    "R.13": {
+      "estado": "ESTA",
+      "evidencia": "POST admin/casos/:id/reprocesar",
+      "fecha": "2026-09-09"
+    },
+    "R.14": {
+      "estado": "ESTA",
+      "evidencia": "retencionDias en config schema",
+      "fecha": "2026-09-09"
+    },
+    "R.15": {
+      "estado": "ESTA",
+      "evidencia": "docker-compose.yml + .env.example",
+      "fecha": "2026-09-09"
+    },
+    "R.16": {
+      "estado": "ESTA",
+      "evidencia": "Import/export CSV configuración rubros",
+      "fecha": "2026-09-09"
+    },
+    "R.17": {
+      "estado": "ESTA",
+      "evidencia": "responsableId plan cuentas + PATCH + UI",
+      "fecha": "2026-09-09"
+    },
+    "S.1": {
+      "estado": "ESTA",
+      "evidencia": "POST /auth/login + GET /users/me",
+      "fecha": "2026-09-09"
+    },
+    "S.2": {
+      "estado": "ESTA",
+      "evidencia": "Roles enum + seed admin (RBAC base)",
+      "fecha": "2026-09-09"
+    },
+    "S.3": {
+      "estado": "ESTA",
+      "evidencia": "config/users/reglas solo adminOrPo",
+      "fecha": "2026-09-09"
+    },
+    "S.4": {
+      "estado": "ESTA",
+      "evidencia": "Headers seguridad onSend HSTS/nosniff",
+      "fecha": "2026-09-09"
+    },
+    "S.5": {
+      "estado": "ESTA",
+      "evidencia": "ServerSideEncryption AES256 MinIO uploads",
+      "fecha": "2026-09-09"
+    },
+    "S.6": {
+      "estado": "ESTA",
+      "evidencia": "documento_consultado auditoría al abrir file",
+      "fecha": "2026-09-09"
+    },
+    "S.7": {
+      "estado": "ESTA",
+      "evidencia": "DEPLOYMENT_MODE + GET /compliance/despliegue S3/Mongo env",
+      "fecha": "2026-09-09"
+    },
+    "S.8": {
+      "estado": "ESTA",
+      "evidencia": "JWT+RBAC + verificarAccesoCaso referente/solo_lectura",
+      "fecha": "2026-09-09"
+    },
+    "S.9": {
+      "estado": "ESTA",
+      "evidencia": "ejecutarPurgaRetencion worker diario + admin POST",
+      "fecha": "2026-09-09"
+    },
+    "S.10": {
+      "estado": "ESTA",
+      "evidencia": "smoke.test.ts pruebas API baseline",
+      "fecha": "2026-09-09"
+    },
+    "S.11": {
+      "estado": "ESTA",
+      "evidencia": "OPENAI_API_KEY env, emailIngesta encryptedPassword schema",
+      "fecha": "2026-09-09"
+    },
+    "S.12": {
+      "estado": "ESTA",
+      "evidencia": "AccesoFallidoModel + GET accesos-fallidos",
+      "fecha": "2026-09-09"
+    },
+    "T.1": {
+      "estado": "ESTA",
+      "evidencia": "enviarAcuseRecepcion nodemailer",
+      "fecha": "2026-09-09"
+    },
+    "T.2": {
+      "estado": "ESTA",
+      "evidencia": "notificarFalloCalidad extract/preprocess",
+      "fecha": "2026-09-09"
+    },
+    "T.3": {
+      "estado": "ESTA",
+      "evidencia": "notificarRevisionAnalista al validar",
+      "fecha": "2026-09-09"
+    },
+    "T.4": {
+      "estado": "ESTA",
+      "evidencia": "Notificación aprobacion_auto semáforo verde sin revisión",
+      "fecha": "2026-09-09"
+    },
+    "T.5": {
+      "estado": "ESTA",
+      "evidencia": "notificarErrorCritico worker failed handler",
+      "fecha": "2026-09-09"
+    },
+    "T.6": {
+      "estado": "ESTA",
+      "evidencia": "notificacionAnalistas/Admin en config",
+      "fecha": "2026-09-09"
+    },
+    "T.7": {
+      "estado": "ESTA",
+      "evidencia": "NotificacionLogModel registro envíos",
+      "fecha": "2026-09-09"
+    },
+    "T.8": {
+      "estado": "ESTA",
+      "evidencia": "Template acuseCorreoTemplate config",
+      "fecha": "2026-09-09"
+    },
+    "U.1": {
+      "estado": "ESTA",
+      "evidencia": "computeKpis tiempoPromedioMinutosAprobacion",
+      "fecha": "2026-09-09"
+    },
+    "U.2": {
+      "estado": "ESTA",
+      "evidencia": "reduccionVsBaselineHorasPct meta 25 min",
+      "fecha": "2026-09-09"
+    },
+    "U.3": {
+      "estado": "ESTA",
+      "evidencia": "pctCuadraturaVerificada",
+      "fecha": "2026-09-09"
+    },
+    "U.4": {
+      "estado": "ESTA",
+      "evidencia": "pctTrazabilidadCompleta",
+      "fecha": "2026-09-09"
+    },
+    "U.5": {
+      "estado": "ESTA",
+      "evidencia": "pctCasosSinIntervencionHumana",
+      "fecha": "2026-09-09"
+    },
+    "U.6": {
+      "estado": "ESTA",
+      "evidencia": "aprendizaje reduccionLineasRevisionPromedioPct",
+      "fecha": "2026-09-09"
+    },
+    "U.7": {
+      "estado": "ESTA",
+      "evidencia": "inconsistenciasConfirmadas KPI",
+      "fecha": "2026-09-09"
+    },
+    "U.8": {
+      "estado": "ESTA",
+      "evidencia": "KPI tasaResolucionAutomaticaPct",
+      "fecha": "2026-09-09"
+    },
+    "U.9": {
+      "estado": "ESTA",
+      "evidencia": "GET /kpis dashboard operativo",
+      "fecha": "2026-09-09"
+    },
+    "U.10": {
+      "estado": "ESTA",
+      "evidencia": "GET /kpis/export CSV/JSON",
+      "fecha": "2026-09-09"
+    },
+    "U.11": {
+      "estado": "ESTA",
+      "evidencia": "casosPorCanal dashboard",
+      "fecha": "2026-09-09"
+    },
+    "U.12": {
+      "estado": "ESTA",
+      "evidencia": "erroresPorEtapa pipelineErrores",
+      "fecha": "2026-09-09"
+    },
+    "V.1": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.2": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.3": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.4": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.5": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.6": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.7": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.8": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.9": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.10": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.11": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "V.12": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "W.1": {
+      "estado": "ESTA",
+      "evidencia": "packages/db contribuyente schema",
+      "fecha": "2026-09-09"
+    },
+    "W.2": {
+      "estado": "ESTA",
+      "evidencia": "DocumentoFuenteModel campos completos",
+      "fecha": "2026-09-09"
+    },
+    "W.3": {
+      "estado": "ESTA",
+      "evidencia": "LineaContableModel trazabilidad y rubro",
+      "fecha": "2026-09-09"
+    },
+    "W.4": {
+      "estado": "ESTA",
+      "evidencia": "RubroInstitucional schema",
+      "fecha": "2026-09-09"
+    },
+    "W.5": {
+      "estado": "ESTA",
+      "evidencia": "FichaCanonicaModel balance/resultados/aprobación",
+      "fecha": "2026-09-09"
+    },
+    "W.6": {
+      "estado": "ESTA",
+      "evidencia": "IndicadorDefinicion + IndicadorCalculado",
+      "fecha": "2026-09-09"
+    },
+    "W.7": {
+      "estado": "ESTA",
+      "evidencia": "CriterioAprobadoModel memoria contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "W.8": {
+      "estado": "ESTA",
+      "evidencia": "AuditoriaEventoModel trazabilidad decisiones",
+      "fecha": "2026-09-09"
+    },
+    "W.9": {
+      "estado": "ESTA",
+      "evidencia": "packages/db caso schema + CasoEstado enum",
+      "fecha": "2026-09-09"
+    },
+    "W.10": {
+      "estado": "ESTA",
+      "evidencia": "InformeComiteModel versión/plantilla/estado",
+      "fecha": "2026-09-09"
+    },
+    "X.1": {
+      "estado": "ESTA",
+      "evidencia": "puedeAprobarFicha cuadratura + generarInforme caso aprobado",
+      "fecha": "2026-09-09"
+    },
+    "X.2": {
+      "estado": "ESTA",
+      "evidencia": "Gate rubro obligatorio approve línea + puedeAprobarFicha",
+      "fecha": "2026-09-09"
+    },
+    "X.3": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría linea_corregida/reclasificada antes de aprobar",
+      "fecha": "2026-09-09"
+    },
+    "X.4": {
+      "estado": "ESTA",
+      "evidencia": "Plan cuentas workflow aprobación formal",
+      "fecha": "2026-09-09"
+    },
+    "X.5": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /config umbral sin redeploy",
+      "fecha": "2026-09-09"
+    },
+    "X.6": {
+      "estado": "ESTA",
+      "evidencia": "CriterioAprobadoModel por contribuyenteId",
+      "fecha": "2026-09-09"
+    },
+    "X.7": {
+      "estado": "ESTA",
+      "evidencia": "try/catch por adjunto mailhog+imap ingest",
+      "fecha": "2026-09-09"
+    },
+    "X.8": {
+      "estado": "ESTA",
+      "evidencia": "requiereRevision + filtro revisión excepciones",
+      "fecha": "2026-09-09"
+    },
+    "X.9": {
+      "estado": "ESTA",
+      "evidencia": "configSnapshot classify + plan en ficha",
+      "fecha": "2026-09-09"
+    },
+    "X.10": {
+      "estado": "ESTA",
+      "evidencia": "FichaCanonica canónica vs documento entrada",
+      "fecha": "2026-09-09"
+    },
+    "Y.1": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.2": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.3": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.4": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.5": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.6": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.7": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.8": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.9": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Y.10": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.1": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.2": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.3": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.4": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.5": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "Z.6": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "AA.1": {
+      "estado": "ESTA",
+      "evidencia": "GET /casos/:id/pipeline-etapas recepción",
+      "fecha": "2026-09-09"
+    },
+    "AA.2": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas extracción + líneas",
+      "fecha": "2026-09-09"
+    },
+    "AA.3": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas normalización moneda/escala",
+      "fecha": "2026-09-09"
+    },
+    "AA.4": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas clasificación rubros",
+      "fecha": "2026-09-09"
+    },
+    "AA.5": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas validación semáforo",
+      "fecha": "2026-09-09"
+    },
+    "AA.6": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas revisión/ficha",
+      "fecha": "2026-09-09"
+    },
+    "AA.7": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas indicadores calculados",
+      "fecha": "2026-09-09"
+    },
+    "AA.8": {
+      "estado": "ESTA",
+      "evidencia": "pipeline-etapas informe comité",
+      "fecha": "2026-09-09"
+    },
+    "AB.1": {
+      "estado": "ESTA",
+      "evidencia": "POST /contribuyentes",
+      "fecha": "2026-09-09"
+    },
+    "AB.2": {
+      "estado": "ESTA",
+      "evidencia": "denominacionesAlternativas",
+      "fecha": "2026-09-09"
+    },
+    "AB.3": {
+      "estado": "ESTA",
+      "evidencia": "auto-vincular contribuyente RUT/razón social en normalize",
+      "fecha": "2026-09-09"
+    },
+    "AB.4": {
+      "estado": "ESTA",
+      "evidencia": "PATCH /casos/:id/contribuyente manual",
+      "fecha": "2026-09-09"
+    },
+    "AB.5": {
+      "estado": "ESTA",
+      "evidencia": "POST merge contribuyentes",
+      "fecha": "2026-09-09"
+    },
+    "AB.6": {
+      "estado": "ESTA",
+      "evidencia": "GET historial casos por contribuyente",
+      "fecha": "2026-09-09"
+    },
+    "AB.7": {
+      "estado": "ESTA",
+      "evidencia": "GET búsqueda contribuyentes",
+      "fecha": "2026-09-09"
+    },
+    "AC.1": {
+      "estado": "ESTA",
+      "evidencia": "Enum CasoEstado completo",
+      "fecha": "2026-09-09"
+    },
+    "AC.2": {
+      "estado": "ESTA",
+      "evidencia": "estadoHistorial con timestamps",
+      "fecha": "2026-09-09"
+    },
+    "AC.3": {
+      "estado": "ESTA",
+      "evidencia": "VALID_TRANSITIONS en caso-service",
+      "fecha": "2026-09-09"
+    },
+    "AC.4": {
+      "estado": "ESTA",
+      "evidencia": "aprobar-ficha flujo completo",
+      "fecha": "2026-09-09"
+    },
+    "AC.5": {
+      "estado": "ESTA",
+      "evidencia": "POST /casos/:id/cancelar estado cancelado",
+      "fecha": "2026-09-09"
+    },
+    "AC.6": {
+      "estado": "ESTA",
+      "evidencia": "POST /casos/:id/reabrir rechazado/cancelado",
+      "fecha": "2026-09-09"
+    },
+    "AC.7": {
+      "estado": "ESTA",
+      "evidencia": "GET /casos/:id historial visible",
+      "fecha": "2026-09-09"
+    },
+    "AC.8": {
+      "estado": "ESTA",
+      "evidencia": "filtro listCasos por loteId",
+      "fecha": "2026-09-09"
+    },
+    "AD.1": {
+      "estado": "ESTA",
+      "evidencia": "FichaCanonica modelo institucional + GET /compliance/principios-ffa",
+      "fecha": "2026-09-09"
+    },
+    "AD.2": {
+      "estado": "ESTA",
+      "evidencia": "Umbral/cola revisión — intervención solo excepciones",
+      "fecha": "2026-09-09"
+    },
+    "AD.3": {
+      "estado": "ESTA",
+      "evidencia": "Validaciones contables + pendiente_calidad ilegibles",
+      "fecha": "2026-09-09"
+    },
+    "AD.4": {
+      "estado": "ESTA",
+      "evidencia": "Canales correo IMAP/Mailhog + portal upload",
+      "fecha": "2026-09-09"
+    },
+    "AD.5": {
+      "estado": "ESTA",
+      "evidencia": "extractionProvider intercambiable mock/openai/anthropic",
+      "fecha": "2026-09-09"
+    },
+    "AD.6": {
+      "estado": "ESTA",
+      "evidencia": "Auditoría configSnapshot + versiones ficha/informe",
+      "fecha": "2026-09-09"
+    },
+    "AE.1": {
+      "estado": "ESTA",
+      "evidencia": "Workflow aprobación plan cuentas",
+      "fecha": "2026-09-09"
+    },
+    "AE.2": {
+      "estado": "ESTA",
+      "evidencia": "plantillas solicitar/aprobar + plantillaVigenteId",
+      "fecha": "2026-09-09"
+    },
+    "AE.3": {
+      "estado": "ESTA",
+      "evidencia": "indicadores solicitar/aprobar + indicadoresVigenteId",
+      "fecha": "2026-09-09"
+    },
+    "AE.4": {
+      "estado": "ESTA",
+      "evidencia": "No editar rubros versión aprobada",
+      "fecha": "2026-09-09"
+    },
+    "AE.5": {
+      "estado": "ESTA",
+      "evidencia": "Registro aprobador en aprobacion",
+      "fecha": "2026-09-09"
+    },
+    "AE.6": {
+      "estado": "ESTA",
+      "evidencia": "GET plan vigente vs histórico",
+      "fecha": "2026-09-09"
+    },
+    "AF.1": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "AF.2": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "AF.3": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    },
+    "AF.4": {
+      "estado": "NO ESTA",
+      "evidencia": "",
+      "fecha": ""
+    }
+  }
+}

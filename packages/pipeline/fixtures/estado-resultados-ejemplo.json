@@ -1,0 +1,40 @@
+{
+  "tipoDocumento": "estado_resultados",
+  "metadata": {
+    "razonSocial": "Clínica Ejemplo SpA",
+    "rut": "76123456-7",
+    "moneda": "CLP",
+    "escala": "miles",
+    "periodo": { "ejercicio": 2025, "desde": "2025-01-01", "hasta": "2025-12-31" }
+  },
+  "lineas": [
+    {
+      "denominacionOriginal": "Ingresos operacionales",
+      "codigoOrigen": "4101",
+      "montoOriginal": 1200000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 91
+    },
+    {
+      "denominacionOriginal": "Costo de ventas",
+      "codigoOrigen": "5101",
+      "montoOriginal": 800000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 89
+    },
+    {
+      "denominacionOriginal": "Gastos administración",
+      "codigoOrigen": "5201",
+      "montoOriginal": 150000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 88
+    },
+    {
+      "denominacionOriginal": "Utilidad del ejercicio",
+      "codigoOrigen": "5901",
+      "montoOriginal": 250000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 90
+    }
+  ]
+}

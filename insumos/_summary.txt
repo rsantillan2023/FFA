@@ -1,0 +1,94 @@
+﻿=== XLSX: Distribucion HS/ROL ===
+Row 2: Septiembre 2026 | Ingeniero FullStack / AI | Remuneraci¾n (usd) | 35.0 | 264 | 9240
+Row 3: 1.0 | 2.0 | 3.0 | 4.0 | 5.0 | 6.0 | 7.0 | 8.0 | PM / Analista | 20.0 | 96 | 1920
+Row 4: 1.0 | 2.0 | 3.0 | 4.0 | 5.0 | 6.0 | 7.0 | 8.0 | 9.0 | 10.0 | 11.0 | 12.0 | 13.0 | 14.0 | 15.0 | 16.0 | 17.0 | 18.0 | 19.0 | 20.0 | 21.0 | 22.0 | 23.0 | 24.0 | 25.0 | 26.0 | 27.0 | 28.0 | 29.0 | 30.0 | 31.0 | 32.0 | 33.0 | 34.0 | 35.0 | 36.0 | 37.0 | 38.0 | 39.0 | 40.0 | QA | 25.0 | 112 | 2800
+Row 5: FFA - Ficha Financiera Automatizada | Ingeniero FullStack / AI | 4.0 | 4.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0
+Row 6: PM / Analista | 8.0 | 8.0 | 8.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 8.0 | 8.0
+Row 7: QA | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 4.0 | 4.0 | 4.0
+Row 8: Costo Infraestructura Sooft | 150.0
+Row 9: 472 | 14110 | USD
+Row 10: 13079123.4 | CLP
+Row 11: TARIFA
+Row 12: Porcentaje asignaci¾n | Dolar | 926.94 | 17438831.2 | CLP
+Row 13: Ingeniero FullStack / AI | 0.5593220339 | UF | 40885.63 | 18813.33333 | USD
+Row 14: PM / Analista | 0.2033898305 | RENTA | 0.25 | 426.527149 | UF
+Row 15: QA | 0.2372881356
+
+=== DOCX: Ficha Financiera Automatizada ===
+Propuesta Comercial - TÚcnica
+Ficha Financiera Automatizada
+Digitalizaci¾n, normalizaci¾n y anßlisis asistido de estados financieros
+Cliente: ECR Salud
+Septiembre 2026
+1. Introducci¾n
+2. Alcance
+3. Propuesta de Soluci¾n
+4. Propuesta de Arquitectura
+5. FFA ù Ficha Financiera Automatizada
+6. Etapas del Proyecto
+7. Definici¾n de Entregables
+8. MetodologÝa y Gobierno
+9. Planificaci¾n
+10. Costo del Proyecto
+11. Consideraciones
+12. Anexos
+Anexo A ù Documentaci¾n de referencia
+Anexo B ù Glosario
+Anexo C ù Soporte
+El ßrea de Factoring de ECR Salud eval·a operaciones de financiamiento sobre informaci¾n financiera que recibe de clientes y contadores externos sin ninguna estructura com·n. Balances tributarios de ocho columnas, balances clasificados y estados financieros auditados bajo IFRS conviven en la misma cartera, llegan por correo en archivos PDF nativos, escaneados o fotografiados, se expresan indistintamente en pesos, en miles de pesos o en miles de d¾lares, y responden a planes de cuenta propios de cada empresa. Cada caso se procesa a mano: el analista vacÝa cuenta por cuenta a una planilla, clasifica seg·n su criterio, verifica la cuadratura, calcula los indicadores y arma el informe de comitÚ. El proceso demanda entre una y seis horas por caso, y no puede asignarse a una persona a tiempo completo porque el equipo tiene otras responsabilidades operativas.
+El costo real no es el tiempo sino lo que ese tiempo desplaza. La capacidad analÝtica del equipo se consume en transcripci¾n en lugar de aplicarse a la evaluaci¾n tÚcnica del riesgo y a la detecci¾n de oportunidades comerciales sobre la cartera. Sobre la muestra de casos revisada durante el relevamiento se identificaron errores de clasificaci¾n en el propio documento de origen ùcuentas de retiro de socios registradas dentro del activo, totales de pasivo que incorporan el patrimonio, escalas en miles no declaradasù que hoy se trasladan al informe de comitÚ sin ser advertidos y distorsionan de forma directa los indicadores de endeudamiento y solvencia sobre los que se decide la operaci¾n. A esto se suma que la informaci¾n financiera de la cartera permanece dispersa en documentos individuales, sin posibilidad de comparar empresas entre sÝ ni ejercicios entre perÝodos.
+En coherencia con los objetivos de eficiencia operativa y calidad de evaluaci¾n del ßrea de Factoring de ECR Salud, Sooft Technology propone el desarrollo e implementaci¾n de FFA (Ficha Financiera Automatizada): una plataforma que recibe los documentos financieros por los mismos canales que el ßrea ya utiliza, los convierte en una ficha financiera estructurada bajo el plan de cuentas institucional, verifica su consistencia contable y genera el informe de comitÚ, derivando al analista ·nicamente aquellas lÝneas que no alcanzan el umbral de confianza definido.
+El FFA no es un lector de documentos. Es el modelo de datos financiero del ßrea de Factoring, y el documento recibido es apenas su punto de entrada.
+El presente documento tiene por objeto presentar la propuesta de soluci¾n de Sooft Technology, que incluye:
+Dise±o, desarrollo e implementaci¾n de la plataforma FFA, desde la recepci¾n del documento hasta la generaci¾n del informe de comitÚ.
+Formalizaci¾n del plan de cuentas institucional como modelo de datos ·nico y versionado del ßrea.
+Puesta en producci¾n con capacitaci¾n, acompa±amiento posterior al Go-Live y traspaso al modelo de soporte continuo.
+Objetivo general
+Implementar el FFA para el ßrea de Factoring de ECR Salud, eliminando el vaciado y la clasificaci¾n manual de estados financieros, y garantizando que toda cifra que llegue al informe de comitÚ haya superado verificaci¾n contable y sea trazable hasta el documento, la pßgina y la lÝnea de la que fue extraÝda.
+Objetivos especÝficos
+Recepci¾n continua: captura automßtica desde la casilla de correo del ßrea y portal de carga alternativo, con operaci¾n fuera del horario laboral y acuse automßtico al remitente, sin modificar los canales que hoy utilizan los ejecutivos comerciales.
+Extracci¾n y normalizaci¾n: conversi¾n de cualquier documento financiero ùnativo, escaneado o fotografiadoù en lÝneas estructuradas, con detecci¾n automßtica de moneda, escala, perÝodo y contribuyente, eliminando el error de interpretaci¾n de unidades.
+Clasificaci¾n bajo modelo ·nico: asignaci¾n de cada lÝnea a un rubro del plan de cuentas institucional mediante reglas del ßrea, coincidencia semßntica tolerante a errores de tipeo y memoria de criterios aprobados por contribuyente.
+Validaci¾n contable y umbral de confianza: verificaci¾n de cuadratura, coherencia entre estados e integridad de agrupaciones, con derivaci¾n obligatoria a revisi¾n humana por debajo del umbral configurable establecido en 85%.
+Revisi¾n por excepci¾n: estaci¾n de trabajo que presenta al analista ·nicamente las lÝneas dudosas, junto al documento de origen y la propuesta del sistema, reduciendo la intervenci¾n al mÝnimo necesario.
+Indicadores e informe de comitÚ: cßlculo sobre f¾rmulas configurables por el ßrea y generaci¾n sobre la plantilla institucional vigente, con los apartados estandarizados resueltos.
+Procesamiento asÝncrono y consolidado: ejecuci¾n en segundo plano de m·ltiples empresas y perÝodos en paralelo, de modo que el equipo contin·e operando mientras la plataforma procesa.
+Repositorio financiero consolidado: historial estructurado por contribuyente que habilita la comparaci¾n entre ejercicios y entre casos de la cartera.
+Fuera de alcance
+Para asegurar claridad del entregable y evitar ambig³edades, se deja explÝcitamente establecido que las siguientes tareas quedan fuera del alcance de la presente propuesta:
+Contravalidaci¾n de la informaci¾n financiera contra declaraciones tributarias, incluidos los formularios 22 y 29.
+Procesamiento de impuestos al valor agregado y de sus codificaciones asociadas.
+Integraci¾n con fuentes externas de informaci¾n, tales como Dicom, la Comisi¾n para el Mercado Financiero o n¾minas de deuda de terceros.
+Verificaci¾n de la veracidad de los antecedentes presentados ante organismos o terceras partes.
+Decisi¾n automatizada de aprobaci¾n o rechazo de la operaci¾n de financiamiento, que permanece en el ßmbito del criterio profesional del ßrea.
+Digitalizaci¾n retroactiva del hist¾rico documental existente previo a la puesta en producci¾n.
+Cualquier necesidad futura sobre estos puntos serß evaluada como evolutivo adicional, con su propia especificaci¾n funcional y cotizaci¾n.
+El FFA traslada al ßrea desde un modelo de transcripci¾n manual hacia un modelo de revisi¾n por excepci¾n. Hoy el analista lee, transcribe, clasifica y verifica cada lÝnea de cada documento. Con el FFA, la plataforma procesa el documento completo en segundo plano y el analista interviene ·nicamente sobre las lÝneas que no alcanzan el umbral de confianza establecido. El objetivo medible es reducir el tiempo de proceso por caso desde el rango actual de una a seis horas hasta un mßximo de veinte a treinta minutos, con cuadratura contable verificada en la totalidad de los casos aprobados y trazabilidad completa de cada cifra hasta su documento de origen.
+┐QuÚ problemas resolvemos?
+
+... (258 parrafos, 27 tablas)
+
+--- Tabla 1 (1 filas) ---
+   ['═ndice']
+
+--- Tabla 2 (1 filas) ---
+   ['1. Introducci¾n']
+
+--- Tabla 3 (1 filas) ---
+   ['2. Alcance']
+
+=== DOCX: Reunion validacion Factoring ===
+python : Traceback (most recent call last):
+En C:\Users\lenovo\AppData\Local\Temp\ps-script-7a1a2dfe-4617-497e-8e9d-d835c783e52c.ps1: 113 Carácter: 1
++ python "c:\Users\lenovo\FFA\insumos\_summary.py" 2>&1 | Out-File -Fil ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "c:\Users\lenovo\FFA\insumos\_summary.py", line 31, in <module>
+    print(p)
+    ~~~~~^^^
+  File "C:\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4dd' in position 0: character maps to <undefined>

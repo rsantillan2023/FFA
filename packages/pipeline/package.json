@@ -1,0 +1,27 @@
+{
+  "name": "@ffa/pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node scripts/test-extract-post-process.mjs && node scripts/test-loma-negra-pages.mjs"
+  },
+  "dependencies": {
+    "@ffa/shared": "*",
+    "@napi-rs/canvas": "^0.1.67",
+    "mathjs": "^14.0.1",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

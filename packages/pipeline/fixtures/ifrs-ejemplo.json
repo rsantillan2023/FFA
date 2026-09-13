@@ -1,0 +1,66 @@
+{
+  "tipoDocumento": "ifrs",
+  "metadata": {
+    "razonSocial": "Holdings IFRS Ejemplo SA",
+    "rut": "76987654-3",
+    "moneda": "CLP",
+    "escala": "miles",
+    "periodo": { "ejercicio": 2025, "desde": "2025-01-01", "hasta": "2025-12-31" }
+  },
+  "lineas": [
+    {
+      "denominacionOriginal": "Efectivo y equivalentes",
+      "montoOriginal": 450000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 91
+    },
+    {
+      "denominacionOriginal": "Propiedad planta y equipo",
+      "montoOriginal": 820000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 88
+    },
+    {
+      "denominacionOriginal": "Total activo",
+      "montoOriginal": 1270000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 90
+    },
+    {
+      "denominacionOriginal": "Cuentas por pagar comerciales",
+      "montoOriginal": 310000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 87
+    },
+    {
+      "denominacionOriginal": "Deuda financiera no corriente",
+      "montoOriginal": 180000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 86
+    },
+    {
+      "denominacionOriginal": "Total pasivo",
+      "montoOriginal": 490000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 89
+    },
+    {
+      "denominacionOriginal": "Capital emitido",
+      "montoOriginal": 520000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 92
+    },
+    {
+      "denominacionOriginal": "Utilidades retenidas",
+      "montoOriginal": 260000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 90
+    },
+    {
+      "denominacionOriginal": "Total patrimonio",
+      "montoOriginal": 780000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 91
+    }
+  ]
+}

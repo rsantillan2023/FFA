@@ -1,0 +1,45 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: ffa-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ffa
+      MONGO_INITDB_ROOT_PASSWORD: ffa_dev
+      MONGO_INITDB_DATABASE: ffa
+    volumes:
+      - ffa_mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: ffa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ffa_redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: ffa-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ffa_minio
+      MINIO_ROOT_PASSWORD: ffa_minio_secret
+    volumes:
+      - ffa_minio_data:/data
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ffa-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  ffa_mongo_data:
+  ffa_redis_data:
+  ffa_minio_data:

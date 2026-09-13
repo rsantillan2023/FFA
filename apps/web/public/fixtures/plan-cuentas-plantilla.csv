@@ -1,0 +1,9 @@
+codigo,nombre,estado_financiero,corriente,convencion_signo,padre_codigo,orden,aliases,nota_margen
+1,Activo,activo,,normal,,1,,
+1.1,Activo corriente,activo,true,normal,1,2,,
+1.1.01,Caja y bancos,activo,true,normal,1.1,3,"caja;bancos",
+2,Pasivo,pasivo,,normal,,4,,
+2.1,Cuentas por pagar,pasivo,true,normal,2,5,proveedores,
+3,Patrimonio,patrimonio,,normal,,6,,
+4,Resultados,resultados,,normal,,7,,
+4.1,Ingresos operacionales,resultados,,normal,4,8,ventas,

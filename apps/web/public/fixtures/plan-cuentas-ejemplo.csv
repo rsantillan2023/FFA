@@ -1,0 +1,119 @@
+codigo,nombre,estado_financiero,corriente,convencion_signo,padre_codigo,orden,aliases,nota_margen
+
+1,Activo,activo,,normal,,1,,
+
+1.1,Activo no corriente,activo,false,normal,1,2,,
+
+1.1.01,Activos intangibles,activo,false,normal,1.1,3,"intangible assets;activos intangibles",
+
+1.1.02,Propiedades planta y equipo,activo,false,normal,1.1,4,"property plant and equipment;ppe;propiedades planta equipo;propiedad planta y equipo","Nota 8 — método de esfuerzos exitosos (upstream)"
+
+1.1.03,Activos por derecho de uso,activo,false,normal,1.1,5,"right-of-use assets;activos por derecho de uso;ifrs 16",
+
+1.1.04,Inversiones en asociadas y negocios conjuntos,activo,false,normal,1.1,6,"investments in associates and joint ventures;participaciones en asociadas",
+
+1.1.05,Créditos por ventas no corrientes,activo,false,normal,1.1,7,"trade receivables non-current;creditos por ventas nc",
+
+1.1.06,Otros créditos no corrientes,activo,false,normal,1.1,8,"other receivables non-current;otros creditos nc",
+
+1.1.07,Activos por impuestos diferidos,activo,false,normal,1.1,9,"deferred income tax assets;activos por impuestos diferidos",
+
+1.1.08,Inversiones en activos financieros no corrientes,activo,false,normal,1.1,10,"investments in financial assets non-current",
+
+1.2,Activo corriente,activo,true,normal,1,11,,
+
+1.2.01,Efectivo y equivalentes de efectivo,activo,true,normal,1.2,12,"cash and cash equivalents;efectivo y equivalentes;caja y bancos;caja;bancos;efectivo","Nota 15 — incluye fondos restringidos"
+
+1.2.02,Inversiones en activos financieros corrientes,activo,true,normal,1.2,13,"investments in financial assets current",
+
+1.2.03,Créditos por ventas,activo,true,normal,1.2,14,"trade receivables;creditos por ventas;cuentas por cobrar",
+
+1.2.04,Otros créditos,activo,true,normal,1.2,15,"other receivables;otros creditos",
+
+1.2.05,Inventarios,activo,true,normal,1.2,16,"inventories;inventarios;existencias",
+
+1.2.06,Activos por contrato,activo,true,normal,1.2,17,"contract assets;activos por contrato",
+
+1.2.07,Activos mantenidos para la venta,activo,true,normal,1.2,18,"assets held for disposal;assets held for sale;activos mantenidos para la venta",
+
+2,Pasivo,pasivo,,normal,,19,,
+
+2.1,Pasivo no corriente,pasivo,false,normal,2,20,,
+
+2.1.01,Provisiones no corrientes,pasivo,false,normal,2.1,21,"provisions non-current;provisiones nc;provision indemnizaciones",
+
+2.1.02,Pasivos por contrato no corrientes,pasivo,false,normal,2.1,22,"contract liabilities non-current",
+
+2.1.03,Pasivos por impuestos diferidos,pasivo,false,normal,2.1,23,"deferred income tax liabilities",
+
+2.1.04,Obligaciones por impuesto a las ganancias no corrientes,pasivo,false,normal,2.1,24,"income tax liability non-current",
+
+2.1.05,Impuestos por pagar no corrientes,pasivo,false,normal,2.1,25,"taxes payable non-current",
+
+2.1.06,Remuneraciones y cargas sociales no corrientes,pasivo,false,normal,2.1,26,"salaries and social security non-current",
+
+2.1.07,Pasivos por arrendamiento no corrientes,pasivo,false,normal,2.1,27,"lease liabilities non-current;pasivos por arrendamiento nc;ifrs 16",
+
+2.1.08,Préstamos no corrientes,pasivo,false,normal,2.1,28,"loans non-current;deuda largo plazo;deuda financiera no corriente;obligaciones financieras lp",
+
+2.1.09,Otros pasivos no corrientes,pasivo,false,normal,2.1,29,"other liabilities non-current",
+
+2.1.10,Cuentas por pagar no corrientes,pasivo,false,normal,2.1,30,"accounts payable non-current",
+
+2.2,Pasivo corriente,pasivo,true,normal,2,31,,
+
+2.2.01,Provisiones corrientes,pasivo,true,normal,2.2,32,"provisions current;provisiones corrientes",
+
+2.2.02,Pasivos por contrato corrientes,pasivo,true,normal,2.2,33,"contract liabilities current",
+
+2.2.03,Obligaciones por impuesto a las ganancias corrientes,pasivo,true,normal,2.2,34,"income tax liability current",
+
+2.2.04,Impuestos por pagar corrientes,pasivo,true,normal,2.2,35,"taxes payable current;impuestos por pagar",
+
+2.2.05,Remuneraciones y cargas sociales corrientes,pasivo,true,normal,2.2,36,"salaries and social security current;sueldos y cargas sociales",
+
+2.2.06,Pasivos por arrendamiento corrientes,pasivo,true,normal,2.2,37,"lease liabilities current;pasivos por arrendamiento",
+
+2.2.07,Préstamos corrientes,pasivo,true,normal,2.2,38,"loans current;deuda financiera corriente;obligaciones financieras cp",
+
+2.2.08,Otros pasivos corrientes,pasivo,true,normal,2.2,39,"other liabilities current",
+
+2.2.09,Cuentas por pagar corrientes,pasivo,true,normal,2.2,40,"accounts payable;cuentas por pagar;cuentas por pagar comerciales;proveedores;cxp",
+
+3,Patrimonio neto,patrimonio,,normal,,41,,"Estructura NIIF — estado de cambios en el patrimonio"
+
+3.1,Aportes de accionistas,patrimonio,,normal,3,42,"shareholders contributions;capital pagado;capital emitido;capital social;capital",
+
+3.2,Ganancias retenidas,patrimonio,,normal,3,43,"retained earnings;utilidades retenidas;utilidades acumuladas;resultados acumulados",
+
+3.3,Patrimonio atribuible a accionistas controladores,patrimonio,,normal,3,44,"shareholders equity attributable to parent;patrimonio controlador",
+
+3.4,Participaciones no controladoras,patrimonio,,normal,3,45,"non-controlling interest;intereses minoritarios",
+
+3.5,Retiros y dividendos a accionistas,patrimonio,,invertido,3,46,"retiros socios;retiros;dividendos;treasury shares",
+
+4,Resultados,resultados,,normal,,47,,"Estado de resultados integrales NIIF (YPF 2023)"
+
+4.1,Ingresos,resultados,,normal,4,48,"revenues;ingresos operacionales;ingresos de actividades ordinarias;ventas",
+
+4.2,Costos,resultados,,invertido,4,49,"costs;costos operacionales;costo de ventas",
+
+4.3,Gastos de comercialización,resultados,,invertido,4,50,"selling expenses;gastos de ventas",
+
+4.4,Gastos de administración,resultados,,invertido,4,51,"administrative expenses;gastos de administracion;gastos administracion",
+
+4.5,Gastos de exploración,resultados,,invertido,4,52,"exploration expenses;gastos de exploracion",
+
+4.6,Deterioro de PPE e intangibles,resultados,,invertido,4,53,"impairment of property plant and equipment;deterioro de activos",
+
+4.7,Otros resultados operativos netos,resultados,,normal,4,54,"other net operating results",
+
+4.8,Resultado operativo,resultados,,normal,4,55,"operating profit or loss;resultado operativo;ebitda",
+
+4.9,Ingresos por participaciones en asociadas,resultados,,normal,4,56,"income from equity interests in associates",
+
+4.10,Resultado financiero neto,resultados,,normal,4,57,"net financial results;resultado financiero neto",
+
+4.11,Impuesto a las ganancias,resultados,,invertido,4,58,"income tax;impuesto a las ganancias",
+
+4.12,Resultado del ejercicio,resultados,,normal,4,59,"net profit or loss for the year;utilidad del ejercicio;utilidad neta;resultado del periodo",

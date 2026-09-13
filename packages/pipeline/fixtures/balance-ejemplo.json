@@ -1,0 +1,97 @@
+{
+  "tipoDocumento": "balance_clasificado",
+  "metadata": {
+    "razonSocial": "Clínica Ejemplo SpA",
+    "rut": "76123456-7",
+    "moneda": "CLP",
+    "escala": "miles",
+    "periodo": { "ejercicio": 2025, "desde": "2025-01-01", "hasta": "2025-12-31" }
+  },
+  "lineas": [
+    {
+      "denominacionOriginal": "Caja y bancos",
+      "codigoOrigen": "1101",
+      "columnaOrigen": "saldo",
+      "montoOriginal": 300000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 92
+    },
+    {
+      "denominacionOriginal": "Propiedades planta equipo",
+      "codigoOrigen": "1201",
+      "montoOriginal": 700000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 88
+    },
+    {
+      "denominacionOriginal": "Cuentas por pagar",
+      "codigoOrigen": "2101",
+      "montoOriginal": 400000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 90
+    },
+    {
+      "denominacionOriginal": "Deuda largo plazo",
+      "codigoOrigen": "2201",
+      "montoOriginal": 100000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 87
+    },
+    {
+      "denominacionOriginal": "Capital pagado",
+      "codigoOrigen": "3101",
+      "montoOriginal": 600000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 91
+    },
+    {
+      "denominacionOriginal": "Retiros socios",
+      "codigoOrigen": "3201",
+      "montoOriginal": 100000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 85
+    },
+    {
+      "denominacionOriginal": "Ingresos operacionales",
+      "codigoOrigen": "4101",
+      "montoOriginal": 1200000,
+      "paginaNumero": 2,
+      "confianzaExtraccion": 93
+    },
+    {
+      "denominacionOriginal": "Costos operacionales",
+      "codigoOrigen": "4201",
+      "montoOriginal": 790000,
+      "paginaNumero": 2,
+      "confianzaExtraccion": 89
+    },
+    {
+      "denominacionOriginal": "Utilidad del ejercicio",
+      "codigoOrigen": "4301",
+      "montoOriginal": 410000,
+      "paginaNumero": 2,
+      "confianzaExtraccion": 86
+    },
+    {
+      "denominacionOriginal": "Total activo",
+      "codigoOrigen": "T1",
+      "montoOriginal": 1000000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 94
+    },
+    {
+      "denominacionOriginal": "Total pasivo",
+      "codigoOrigen": "T2",
+      "montoOriginal": 500000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 93
+    },
+    {
+      "denominacionOriginal": "Total patrimonio",
+      "codigoOrigen": "T3",
+      "montoOriginal": 500000,
+      "paginaNumero": 1,
+      "confianzaExtraccion": 92
+    }
+  ]
+}
