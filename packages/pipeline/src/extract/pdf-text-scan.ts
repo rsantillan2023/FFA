@@ -10,36 +10,43 @@ export interface PageTextScan {
   tituloCanonico?: boolean;
 }
 
-/** Títulos formales — señal fuerte de estado canónico. */
-const TITULOS_CANONICOS: { seccion: SeccionPagina; patterns: RegExp[]; bonus: number }[] = [
+/** Encabezados formales de estados — no referencias en notas al pie. */
+const TITULOS_ENCABEZADO: { seccion: SeccionPagina; patterns: RegExp[]; bonus: number }[] = [
   {
     seccion: "balance",
     bonus: 45,
     patterns: [
-      /estado de situaci[oó]n financiera/i,
-      /estado de situacion financiera/i,
+      /estado (?:consolidado|separado) de situaci[oó]n financiera(?:\s+al|\s+por)/i,
+      /estado de situaci[oó]n financiera(?:\s+al|\s+por)/i,
       /balance general consolidado/i,
-      /balance general/i,
+      /balance general(?:\s+al|\s+por|\s*$)/i,
     ],
   },
   {
     seccion: "resultados",
     bonus: 45,
     patterns: [
-      /estado de resultados/i,
-      /estado del resultado/i,
-      /resultado integral consolidado/i,
-      /estado de resultados consolidado/i,
+      /estado (?:consolidado|separado) del? resultado(?:s)?(?:\s+integral)?(?:\s+por el ejercicio|\s+al)/i,
+      /estado de resultados(?:\s+consolidado)?(?:\s+por el ejercicio|\s+al)/i,
+      /resultado integral consolidado(?:\s+por el ejercicio|\s+al)/i,
     ],
   },
   {
     seccion: "flujo_efectivo",
     bonus: 45,
     patterns: [
-      /estado de flujo[s]? de efectivo/i,
-      /estado de flujos de efectivo/i,
+      /estado (?:consolidado|separado) de flujos? de efectivo(?:\s+por el ejercicio|\s+al)/i,
     ],
   },
+];
+
+/** Menciones en notas o párrafos — no cuentan como título canónico. */
+const REFERENCIA_ESTADO_EN_NOTA = [
+  /en el estado de situaci[oó]n financiera/i,
+  /dentro del estado de resultados/i,
+  /en el estado del resultado/i,
+  /del estado de flujos de efectivo/i,
+  /estados financieros consolidados desde la fecha/i,
 ];
 
 /** Señales de resumen/portada — prevalecen sobre KPIs sueltos. */
@@ -72,7 +79,10 @@ const BALANCE_ESTRUCTURAL = [
   /total del activo/i,
   /total del pasivo/i,
   /activo corriente/i,
+  /activos corrientes/i,
+  /activos no corrientes/i,
   /pasivo corriente/i,
+  /pasivos no corrientes/i,
   /patrimonio neto/i,
   /propiedades,? planta y equipo/i,
 ];
@@ -105,12 +115,50 @@ const OPERATIVO_SIGNALS = [
   /variaci[oó]n porcentual/i,
 ];
 
+/** Segunda cara del balance (CMP, IFRS): pasivos + patrimonio. */
+const BALANCE_CONTINUACION_PASIVOS = [
+  /pasivos y patrimonio/i,
+  /patrimonio y pasivos/i,
+  /estado de situaci[oó]n financiera[^.]{0,120}pasivos/i,
+  /estado de situaci[oó]n financiera consolidado\s*-\s*pasivos/i,
+];
+
+const PASIVO_PATRIMONIO_ESTRUCTURAL = [
+  /pasivos corrientes totales/i,
+  /total pasivos/i,
+  /patrimonio total/i,
+  /capital emitido/i,
+  /ganancias acumuladas/i,
+  /deudas? financieras/i,
+];
+
+function esBalanceContinuacionPasivosPatrimonio(text: string): boolean {
+  return BALANCE_CONTINUACION_PASIVOS.some((p) => p.test(text));
+}
+
 function countMatches(text: string, patterns: RegExp[]): number {
   let n = 0;
   for (const p of patterns) {
     if (p.test(text)) n += 1;
   }
   return n;
+}
+
+function countNumericTokens(rawText: string): number {
+  return (rawText.match(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,}/g) ?? []).length;
+}
+
+function esReferenciaEnNota(text: string): boolean {
+  return REFERENCIA_ESTADO_EN_NOTA.some((p) => p.test(text));
+}
+
+function tieneEncabezadoEstado(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((p) => p.test(text));
+}
+
+function evidenciaTabular(text: string, numericTokens: number, structCount: number): boolean {
+  if (numericTokens >= 8 || structCount >= 2) return true;
+  return /\(en millones|comparativo con el ejercicio|nota \d/i.test(text);
 }
 
 function scorePageText(rawText: string): { seccion: SeccionPagina; score: number; tituloCanonico: boolean } {
@@ -120,34 +168,59 @@ function scorePageText(rawText: string): { seccion: SeccionPagina; score: number
   const operativoHits = countMatches(text, OPERATIVO_SIGNALS);
   const kpiHits = countMatches(text, KPI_DEBILES);
 
-  const numericTokens = (rawText.match(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{4,}/g) ?? []).length;
+  const numericTokens = countNumericTokens(rawText);
   const densidadTabular = numericTokens >= 12 ? 8 : numericTokens >= 8 ? 4 : 0;
+
+  const balanceStruct = countMatches(text, BALANCE_ESTRUCTURAL);
+  const resultadosStruct = countMatches(text, RESULTADOS_ESTRUCTURAL);
+  const flujoStruct = countMatches(text, FLUJO_ESTRUCTURAL);
+
+  if (
+    esBalanceContinuacionPasivosPatrimonio(text) &&
+    (numericTokens >= 8 || /total pasivos/i.test(text))
+  ) {
+    const pasivoStruct = countMatches(text, PASIVO_PATRIMONIO_ESTRUCTURAL);
+    const score = 45 + densidadTabular + pasivoStruct * 8;
+    const titulo = /total pasivos/i.test(text) && /patrimonio total/i.test(text);
+    return { seccion: "balance", score, tituloCanonico: titulo };
+  }
 
   const sectionScores = new Map<SeccionPagina, number>();
   let tituloCanonico = false;
   let seccionPorTitulo: SeccionPagina | null = null;
 
-  // 1) Títulos formales — máxima prioridad
-  for (const titulo of TITULOS_CANONICOS) {
-    if (countMatches(text, titulo.patterns) > 0) {
+  // 1) Encabezados formales — máxima prioridad (excluye menciones en notas sin tabla)
+  for (const titulo of TITULOS_ENCABEZADO) {
+    if (!tieneEncabezadoEstado(text, titulo.patterns)) continue;
+
+    const structForSection =
+      titulo.seccion === "balance"
+        ? balanceStruct
+        : titulo.seccion === "resultados"
+          ? resultadosStruct
+          : flujoStruct;
+
+    const esTituloReal =
+      !esReferenciaEnNota(text) || evidenciaTabular(text, numericTokens, structForSection);
+
+    if (esTituloReal && evidenciaTabular(text, numericTokens, structForSection)) {
       tituloCanonico = true;
       seccionPorTitulo = titulo.seccion;
       sectionScores.set(titulo.seccion, (sectionScores.get(titulo.seccion) ?? 0) + titulo.bonus + densidadTabular);
+    } else {
+      sectionScores.set(titulo.seccion, (sectionScores.get(titulo.seccion) ?? 0) + 12 + densidadTabular);
     }
   }
 
   // 2) Estructura compuesta (sin título explícito)
-  const balanceStruct = countMatches(text, BALANCE_ESTRUCTURAL);
   if (balanceStruct >= 2) {
     sectionScores.set("balance", (sectionScores.get("balance") ?? 0) + balanceStruct * 8 + densidadTabular);
   }
 
-  const resultadosStruct = countMatches(text, RESULTADOS_ESTRUCTURAL);
   if (resultadosStruct >= 2) {
     sectionScores.set("resultados", (sectionScores.get("resultados") ?? 0) + resultadosStruct * 8 + densidadTabular);
   }
 
-  const flujoStruct = countMatches(text, FLUJO_ESTRUCTURAL);
   if (flujoStruct >= 2) {
     sectionScores.set(
       "flujo_efectivo",
@@ -272,8 +345,11 @@ export async function getPdfNumPages(pdfBuffer: Buffer): Promise<number> {
 /** Umbral para considerar una página como estado canónico obligatorio. */
 export function esPaginaCanonicaObligatoria(scan: PageTextScan): boolean {
   if (!["balance", "resultados", "flujo_efectivo"].includes(scan.seccion)) return false;
-  // Título formal del estado → siempre obligatorio
   if (scan.tituloCanonico) return true;
-  // Estructura fuerte sin título explícito → solo si score alto (evita KPIs/resúmenes p1-6)
+  // Estructura fuerte sin título explícito → score alto (evita KPIs/resúmenes p1-6)
   return scan.score >= 28;
+}
+
+export function densidadNumericaPagina(scan: PageTextScan): number {
+  return countNumericTokens(scan.text);
 }

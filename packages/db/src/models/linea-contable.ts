@@ -29,8 +29,21 @@ const lineaContableSchema = new Schema(
     requiereRevision: { type: Boolean, default: false },
     origenClasificacion: {
       type: String,
-      enum: ["regla", "semantica", "asistida", "criterio_contribuyente", "manual", "ia_revision"],
+      enum: [
+        "regla",
+        "semantica",
+        "asistida",
+        "criterio_contribuyente",
+        "manual",
+        "ia_clasificacion",
+        "ia_revision",
+        "ia_pre_revision",
+      ],
     },
+    /** Marca de tiempo de la última clasificación con IA en revisión (no se re-procesa en lote). */
+    clasificacionIaAt: Date,
+    /** Explicación persistida de la última sugerencia IA aplicada en revisión. */
+    clasificacionIaRazonamiento: String,
     candidatosAsistidos: [
       {
         rubroInstitucionalId: { type: Schema.Types.ObjectId, ref: "RubroInstitucional" },
@@ -44,6 +57,9 @@ const lineaContableSchema = new Schema(
       enum: Object.values(LineaEstado),
       default: LineaEstado.CRUDA,
     },
+    /** No suma en cuadratura 1=2+3 (totales, otro estado financiero, etc.). */
+    excluirDeCuadratura: { type: Boolean, default: false },
+    motivoExclusionCuadratura: String,
   },
   { timestamps: true }
 );

@@ -258,7 +258,7 @@ const CLUSTER_SPOTLIGHT: Record<
     copy: "Orientación del flujo, carga de documentos y seguimiento de fichas en procesamiento.",
     bullets: [
       "Resumen del día y accesos rápidos",
-      "Mapa del proceso en 6 etapas",
+      "Mapa del proceso en 7 etapas",
       "Bandeja de fichas y carga de PDFs",
     ],
   },

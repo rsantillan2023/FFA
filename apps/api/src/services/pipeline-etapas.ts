@@ -8,11 +8,15 @@ import {
   ValidacionResultadoModel,
   type CasoDocument,
 } from "@ffa/db";
-import { CasoEstado, type PipelineEtapaDto } from "@ffa/shared";
+import {
+  CasoEstado,
+  type PipelineEtapaDto,
+  type PipelineSubPasoDto,
+} from "@ffa/shared";
 
 const ETAPA_INICIO: Record<string, string[]> = {
   "AA.1": [CasoEstado.RECIBIDO],
-  "AA.2": [CasoEstado.PREPROCESANDO, CasoEstado.EXTRAYENDO],
+  "AA.2": [CasoEstado.EN_COLA, CasoEstado.PREPROCESANDO, CasoEstado.EXTRAYENDO],
   "AA.3": [CasoEstado.NORMALIZANDO],
   "AA.4": [CasoEstado.CLASIFICANDO],
   "AA.5": [CasoEstado.VALIDANDO],
@@ -34,7 +38,7 @@ const ETAPA_FIN: Record<string, string[]> = {
 /** Estado del caso → paso AA en curso (para % de progreso global). */
 const ESTADO_AA: Partial<Record<string, string>> = {
   [CasoEstado.RECIBIDO]: "AA.1",
-  [CasoEstado.EN_COLA]: "AA.1",
+  [CasoEstado.EN_COLA]: "AA.2",
   [CasoEstado.PREPROCESANDO]: "AA.2",
   [CasoEstado.EXTRAYENDO]: "AA.2",
   [CasoEstado.NORMALIZANDO]: "AA.3",
@@ -143,6 +147,172 @@ function earliestHistorialAfter(
   return best;
 }
 
+type DocPipeline = {
+  paginaCount?: number;
+  extractMetadata?: unknown;
+  procesamiento?: {
+    etapaActual?: string | null;
+    ultimoError?: string | null;
+  } | null;
+};
+
+function segundosEntre(a?: Date, b?: Date): number | undefined {
+  if (!a || !b) return undefined;
+  return Math.max(0, Math.floor((b.getTime() - a.getTime()) / 1000));
+}
+
+/** Cola → preproceso → extracción IA dentro de AA.2 (sin paralelismo en inline). */
+function buildSubPasosAA2(
+  caso: CasoDocument,
+  docs: DocPipeline[],
+  lineas: number,
+  esPendienteCalidad: boolean,
+  historial: HistorialEntry[]
+): PipelineSubPasoDto[] {
+  const now = new Date();
+  const docActivo =
+    docs.find(
+      (d) =>
+        d.procesamiento?.etapaActual === "extract" ||
+        d.procesamiento?.etapaActual === "preprocess"
+    ) ?? docs[0];
+  const paginas = docActivo?.paginaCount;
+
+  const tCola =
+    earliestHistorial(historial, [CasoEstado.EN_COLA]) ??
+    earliestHistorial(historial, [CasoEstado.RECIBIDO]);
+  const tPreprocess = earliestHistorialAfter(
+    historial,
+    [CasoEstado.PREPROCESANDO],
+    tCola
+  );
+  const tExtract = earliestHistorialAfter(
+    historial,
+    [CasoEstado.EXTRAYENDO],
+    tPreprocess ?? tCola
+  );
+  const tNormalizado = earliestHistorial(historial, [CasoEstado.NORMALIZANDO]);
+
+  const nivel = nivelEstadoParaPipeline(caso.estado);
+  const colaCompletada =
+    Boolean(tPreprocess) || nivel >= nivelEstado(CasoEstado.PREPROCESANDO);
+  const preprocessCompletada =
+    Boolean(tExtract) ||
+    nivel >= nivelEstado(CasoEstado.EXTRAYENDO) ||
+    docs.some((d) => d.procesamiento?.etapaActual === "extract");
+  const extractCompletada =
+    !esPendienteCalidad &&
+    lineas > 0 &&
+    (Boolean(tNormalizado) || nivel >= nivelEstado(CasoEstado.NORMALIZANDO));
+
+  type FaseId = PipelineSubPasoDto["id"];
+  let faseActual: FaseId | null = null;
+  if (esPendienteCalidad) faseActual = "extract";
+  else if (caso.estado === CasoEstado.EN_COLA) faseActual = "cola";
+  else if (
+    caso.estado === CasoEstado.PREPROCESANDO ||
+    docActivo?.procesamiento?.etapaActual === "preprocess"
+  ) {
+    faseActual = "preprocess";
+  } else if (
+    caso.estado === CasoEstado.EXTRAYENDO ||
+    docActivo?.procesamiento?.etapaActual === "extract"
+  ) {
+    faseActual = "extract";
+  }
+
+  function estadoSub(id: FaseId): PipelineSubPasoDto["estado"] {
+    const orden: FaseId[] = ["cola", "preprocess", "extract"];
+    const idx = orden.indexOf(id);
+    const actualIdx = faseActual ? orden.indexOf(faseActual) : -1;
+    if (id === "cola" && colaCompletada) return "listo";
+    if (id === "preprocess" && preprocessCompletada) return "listo";
+    if (id === "extract" && extractCompletada) return "listo";
+    if (faseActual === id) {
+      return id === "cola" && caso.estado === CasoEstado.EN_COLA ? "espera" : "en_curso";
+    }
+    if (actualIdx >= 0 && idx < actualIdx) return "listo";
+    return "pendiente";
+  }
+
+  const colaEspera =
+    faseActual === "cola" && tCola
+      ? segundosEntre(tCola, now)
+      : tCola && tPreprocess
+        ? segundosEntre(tCola, tPreprocess)
+        : undefined;
+
+  const preprocessTrabajo =
+    faseActual === "preprocess" && tPreprocess
+      ? segundosEntre(tPreprocess, now)
+      : tPreprocess && tExtract
+        ? segundosEntre(tPreprocess, tExtract)
+        : undefined;
+
+  const extractTrabajo =
+    faseActual === "extract" && tExtract
+      ? segundosEntre(tExtract, now)
+      : tExtract && tNormalizado
+        ? segundosEntre(tExtract, tNormalizado)
+        : undefined;
+
+  return [
+    {
+      id: "cola",
+      label: "En cola",
+      estado: estadoSub("cola"),
+      resultado: colaCompletada ? "Turno asignado — el motor tomó el caso" : undefined,
+      esperaSegundos: colaEspera,
+      detalle: "Espera turno; no hay lectura del PDF hasta que arranque el job.",
+    },
+    {
+      id: "preprocess",
+      label: "Preproceso PDF",
+      estado: estadoSub("preprocess"),
+      resultado:
+        preprocessCompletada && paginas
+          ? `${paginas} página(s) preparada(s)`
+          : preprocessCompletada
+            ? "PDF preparado"
+            : undefined,
+      trabajoSegundos: preprocessTrabajo,
+      detalle: "Prepara páginas e imágenes antes de la extracción IA.",
+    },
+    {
+      id: "extract",
+      label: "Extracción IA",
+      estado: estadoSub("extract"),
+      resultado: lineas > 0
+        ? `${lineas} fila(s) leídas`
+        : esPendienteCalidad
+          ? (docActivo?.procesamiento?.ultimoError ?? "Falló — revisión manual")
+          : undefined,
+      trabajoSegundos: extractTrabajo,
+      detalle: "Lee montos y filas del documento con IA (puede tardar varios minutos).",
+    },
+  ];
+}
+
+function detalleAA2DesdeSubPasos(subPasos: PipelineSubPasoDto[]): string {
+  const activo = subPasos.find((s) => s.estado === "en_curso" || s.estado === "espera");
+  if (!activo) {
+    const ultimoListo = [...subPasos].reverse().find((s) => s.estado === "listo");
+    return ultimoListo?.resultado ?? "Lectura del documento";
+  }
+  if (activo.estado === "espera") {
+    const espera =
+      activo.esperaSegundos != null && activo.esperaSegundos > 0
+        ? ` — espera ${Math.floor(activo.esperaSegundos / 60) || 1} min`
+        : "";
+    return `En cola${espera} (sin trabajo activo hasta tomar turno)`;
+  }
+  const mins =
+    activo.trabajoSegundos != null && activo.trabajoSegundos >= 60
+      ? ` — lleva ${Math.floor(activo.trabajoSegundos / 60)} min`
+      : "";
+  return `${activo.label}${mins}`;
+}
+
 interface EtapaTimingScratch {
   etapa: PipelineEtapaDto;
   iniciadaEn?: Date;
@@ -216,16 +386,22 @@ function enrichEtapasTiming(caso: CasoDocument, etapas: PipelineEtapaDto[]): Pip
     }
 
     let detalle = etapa.detalle;
-    if (
-      enCurso &&
-      etapa.id === "AA.2" &&
-      caso.estado !== CasoEstado.PENDIENTE_CALIDAD &&
-      duracionSegundos != null &&
-      duracionSegundos > 90
-    ) {
-      const mins = Math.floor(duracionSegundos / 60);
-      const tiempo = mins > 0 ? `${mins} min` : `${duracionSegundos} s`;
-      detalle = `${detalle ?? "Extracción IA en curso"} — lleva ${tiempo} (normal en PDFs grandes; si supera ~10 min probá reiniciar el caso)`;
+    let esperaSegundos = etapa.esperaSegundos;
+    let trabajoSegundos = etapa.trabajoSegundos;
+    let duracionMostrar = duracionSegundos;
+
+    if (etapa.id === "AA.2" && etapa.subPasos?.length) {
+      if (enCurso) detalle = detalleAA2DesdeSubPasos(etapa.subPasos);
+      const activo = etapa.subPasos.find((s) => s.estado === "en_curso" || s.estado === "espera");
+      if (activo?.estado === "espera") {
+        esperaSegundos = activo.esperaSegundos;
+        trabajoSegundos = undefined;
+        duracionMostrar = esperaSegundos;
+      } else if (activo?.estado === "en_curso") {
+        trabajoSegundos = activo.trabajoSegundos;
+        esperaSegundos = etapa.subPasos.find((s) => s.id === "cola")?.esperaSegundos;
+        duracionMostrar = trabajoSegundos;
+      }
     }
 
     return {
@@ -235,7 +411,9 @@ function enrichEtapasTiming(caso: CasoDocument, etapas: PipelineEtapaDto[]): Pip
       iniciadaEn: iniciadaEn?.toISOString(),
       completadaEn: completadaEn?.toISOString(),
       progresoPct: enCurso ? progresoPct : undefined,
-      duracionSegundos: enCurso || etapa.completada ? duracionSegundos : undefined,
+      duracionSegundos: enCurso || etapa.completada ? duracionMostrar : undefined,
+      esperaSegundos,
+      trabajoSegundos,
     };
   });
 }
@@ -331,6 +509,9 @@ export async function getPipelineEtapas(casoId: string): Promise<PipelineEtapaDt
     return "Pendiente extracción";
   })();
 
+  const historial = historialCorridaActual(caso);
+  const subPasosAA2 = buildSubPasosAA2(caso, docs, lineas, esPendienteCalidad, historial);
+
   const etapas: PipelineEtapaDto[] = [
     {
       id: "AA.1",
@@ -342,7 +523,12 @@ export async function getPipelineEtapas(casoId: string): Promise<PipelineEtapaDt
       id: "AA.2",
       nombre: "Extracción",
       completada: extraccionCompletada,
-      detalle: detalleExtraccion,
+      detalle: extraccionCompletada
+        ? lineas > 0
+          ? `${lineas} línea(s)`
+          : detalleExtraccion
+        : detalleAA2DesdeSubPasos(subPasosAA2),
+      subPasos: subPasosAA2,
     },
     {
       id: "AA.3",
@@ -352,7 +538,7 @@ export async function getPipelineEtapas(casoId: string): Promise<PipelineEtapaDt
         ? `${caso.moneda ?? metaDoc?.extractMetadata?.moneda ?? "?"} · escala ${caso.escala ?? metaDoc?.extractMetadata?.escala ?? "?"}`
         : caso.estado === CasoEstado.NORMALIZANDO
           ? "Normalizando metadatos del expediente"
-          : "Metadatos pendientes",
+        : "Metadatos pendientes",
     },
     {
       id: "AA.4",
@@ -362,9 +548,19 @@ export async function getPipelineEtapas(casoId: string): Promise<PipelineEtapaDt
     },
     {
       id: "AA.5",
-      nombre: "Validación",
+      nombre: "Validación y preparación",
       completada: validado,
-      detalle: validado ? `Semáforo ${caso.semaforo}` : "Sin validaciones",
+      detalle: (() => {
+        if (validado) return `Semáforo ${caso.semaforo}`;
+        const procPreRev = docs.find((d) => d.procesamiento?.etapaActual === "pre_revision");
+        if (procPreRev || caso.estado === CasoEstado.VALIDANDO) {
+          const etapa = procPreRev?.procesamiento?.etapaActual;
+          if (etapa === "pre_revision") {
+            return "Preparando revisión (limpieza, cuadratura, IA)";
+          }
+        }
+        return caso.estado === CasoEstado.VALIDANDO ? "Validando y preparando revisión" : "Sin validaciones";
+      })(),
     },
     {
       id: "AA.6",

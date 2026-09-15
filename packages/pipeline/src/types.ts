@@ -145,6 +145,24 @@ export interface CoberturaDesglose {
   coberturaTablas?: CoberturaTablaPagina[];
 }
 
+/** Trazabilidad extracción IA vs heurística (F4). */
+export interface ProvenanceExtraccion {
+  proveedorExtraccion: "anthropic" | "openai" | "mock";
+  seleccionPaginas: "claude_map" | "pdf_corto_completo" | "heuristica" | "todas";
+  complementoHeuristicoPostExtract: boolean;
+  paginasPdfTotal: number;
+  paginasEnviadasVision: number;
+  paginasOmitidasVision: number;
+  usedClaudePageMap: boolean;
+  /** Suma de filas detectadas en PDF pero no extraídas (cobertura tablas). */
+  lineasOmitidasEstimadas?: number;
+  /** PDF corto nativo: filas tomadas del texto escaneado antes que Vision. */
+  textoNativoPrimario?: boolean;
+  lineasDesdeTextoNativo?: number;
+  lineasAnadidasDesdeTexto?: number;
+  lineasMontosCorregidos?: number;
+}
+
 export interface InformeExtraccion {
   paginasTotales: number;
   paginasProcesadas: number;
@@ -253,6 +271,7 @@ export interface ExtractResult {
   transcripcionPaginas?: ExtractTranscripcionPagina[];
   paginasClasificadas?: PaginaClasificada[];
   tiposPorPagina?: { pagina: number; tipoDocumento: string; seccionPagina?: SeccionPagina }[];
+  provenanceExtraccion?: ProvenanceExtraccion;
 }
 
 export interface NormalizeLogEntry {
@@ -266,6 +285,8 @@ export interface ValidateContext {
   periodoEjercicio?: number;
   tipoDocumento?: string;
   añoVigente?: number;
+  /** Páginas del balance testigo — acota H.17 y warnings de clasificación. */
+  paginasBalanceObjetivo?: number[];
 }
 
 export interface NormalizedLine extends ExtractedLine {
@@ -313,6 +334,9 @@ export interface CandidatoAsistido {
 }
 
 export interface ClassifiedLine extends NormalizedLine {
+  id?: string;
+  excluirDeCuadratura?: boolean;
+  motivoExclusionCuadratura?: string;
   rubroInstitucionalId?: string;
   rubroCodigo?: string;
   confianzaClasificacion: number;
@@ -323,8 +347,11 @@ export interface ClassifiedLine extends NormalizedLine {
     | "asistida"
     | "criterio_contribuyente"
     | "manual"
-    | "ia_revision";
+    | "ia_clasificacion"
+    | "ia_revision"
+    | "ia_pre_revision";
   candidatosAsistidos?: CandidatoAsistido[];
+  clasificacionIaRazonamiento?: string;
 }
 
 export interface ValidationItem {

@@ -15,6 +15,7 @@ import { CONFIG_SISTEMA_ID, CasoEstado, LineaEstado, isDemoExtractIdentity } fro
 import type { Job } from "bullmq";
 import type { HydratedDocument } from "mongoose";
 import { enqueueClassify } from "../lib/enqueue.js";
+import { skipSiPipelineObsoleto } from "../lib/pipeline-run.js";
 import { assertCasoNoPausado } from "../lib/pausa.js";
 import { actualizarProgresoCaso } from "../lib/progreso.js";
 
@@ -60,6 +61,7 @@ export async function processNormalize(job: Job<NormalizeJobData>): Promise<void
   const { casoId, documentoId } = job.data;
 
   await assertCasoNoPausado(casoId);
+  if (await skipSiPipelineObsoleto(casoId, job.data.runId, (m) => job.log(m))) return;
   await transicionarCaso(casoId, CasoEstado.NORMALIZANDO, { nota: `Job ${job.id}` });
   await actualizarProgresoCaso(casoId, "normalize", undefined, documentoId);
 

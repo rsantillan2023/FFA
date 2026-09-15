@@ -81,7 +81,7 @@ export const FFA_MENU_BASE: Omit<FfaMenuItem, "showInAdminSidebar" | "showInAdmi
     route: "/flujo",
     icon: "fas fa-project-diagram",
     groupId: "operacion-inicio",
-    description: "Diagrama de las 6 etapas y seguimiento de expedientes.",
+    description: "Diagrama de las 7 etapas y seguimiento de expedientes.",
   },
   {
     id: "casos",

@@ -1,5 +1,8 @@
 <template>
-  <div class="workflow-diagram" :class="{ 'workflow-diagram--compact': compact }">
+  <div
+    class="workflow-diagram"
+    :class="{ 'workflow-diagram--compact': compact, 'workflow-diagram--bare': bare }"
+  >
     <div class="workflow-diagram__track" role="list" aria-label="Etapas del proceso">
       <div v-for="(step, index) in steps" :key="step.id" class="workflow-diagram__item">
         <article
@@ -65,6 +68,8 @@ import {
 const props = defineProps<{
   steps: WorkflowStepView[];
   compact?: boolean;
+  /** Sin caja/borde alrededor de cada nodo — solo icono y texto. */
+  bare?: boolean;
   showDates?: boolean;
   showLinks?: boolean;
   casoId?: string;
@@ -298,6 +303,48 @@ function linkFor(step: WorkflowStepView): { name: string; params?: { id: string 
   min-width: 7.5rem;
   max-width: 9rem;
   padding: 0.65rem 0.55rem;
+}
+
+.workflow-diagram--bare .workflow-node {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.35rem 0.25rem;
+}
+
+.workflow-diagram--bare .workflow-node--interactive:hover {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.workflow-diagram--bare .workflow-node--interactive:hover .workflow-node__title {
+  color: var(--brand);
+}
+
+.workflow-diagram--bare .workflow-node--selected {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.workflow-diagram--bare .workflow-node--selected .workflow-node__title {
+  color: var(--brand-ink);
+}
+
+.workflow-diagram--bare .workflow-node--completed,
+.workflow-diagram--bare .workflow-node--active,
+.workflow-diagram--bare .workflow-node--error,
+.workflow-diagram--bare .workflow-node--pending {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workflow-diagram--bare .workflow-node__detalle {
+  background: transparent;
+  padding: 0.25rem 0 0;
 }
 
 @media (max-width: 900px) {

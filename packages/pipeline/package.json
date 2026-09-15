@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node scripts/test-extract-post-process.mjs && node scripts/test-loma-negra-pages.mjs"
+    "test": "npm run build && node scripts/test-extract-post-process.mjs && node scripts/test-loma-negra-pages.mjs && node scripts/test-golden-pages.mjs && node scripts/test-f4-provenance.mjs"
   },
   "dependencies": {
     "@ffa/shared": "*",

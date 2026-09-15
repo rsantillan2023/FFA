@@ -3,7 +3,7 @@ import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
 import { fileURLToPath } from "node:url";
 import { appConfig } from "./config.js";
-import { bootstrapInfra } from "./lib/bootstrap.js";
+import { bootstrapInfra, reconciliarPreprocessInlineAlArranque } from "./lib/bootstrap.js";
 import { registerAuth } from "./plugins/auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { configRoutes } from "./routes/config.js";
@@ -85,6 +85,7 @@ export async function buildApp() {
 async function main(): Promise<void> {
   const mongoUri = await bootstrapInfra();
   await connectDatabase(mongoUri);
+  await reconciliarPreprocessInlineAlArranque();
   initIaLlamadaLogging();
   await syncExtractionProviderFromEnv();
 

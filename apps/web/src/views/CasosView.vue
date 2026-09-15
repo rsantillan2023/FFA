@@ -17,30 +17,21 @@
           v-if="casosTrabados.length"
           class="btn btn-ghost btn-action-stack btn-action-stack--header btn-trabados"
           type="button"
-          :title="`Reprocesar ${casosTrabados.length} trabados`"
-          :disabled="bulkReinicioRunning"
+          :title="`Acción masiva: foja cero en ${casosTrabados.length} fichas trabadas (no solo la fila seleccionada)`"
+          :disabled="bulkReinicioRunning || reinicioSaving"
           @click="abrirBulkReinicio"
         >
-          <i class="fas fa-rotate-left" aria-hidden="true"></i>
-          <span>Trabados ({{ casosTrabados.length }})</span>
-        </button>
-        <button
-          class="btn btn-ghost btn-action-stack btn-action-stack--header"
-          type="button"
-          title="Asistente IA"
-          @click="openUploadAssist"
-        >
-          <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-          <span>Asistente</span>
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+          <span>Todos trabados ({{ casosTrabados.length }})</span>
         </button>
         <button
           class="btn btn-primary btn-action-stack btn-action-stack--header"
           type="button"
-          title="Cargar documentos"
+          title="Cargar nuevo expediente"
           @click="showUpload = true"
         >
           <i class="fas fa-cloud-arrow-up" aria-hidden="true"></i>
-          <span>Cargar</span>
+          <span>Cargar nuevo expediente</span>
         </button>
       </template>
     </PageHeader>
@@ -48,13 +39,11 @@
     <CreateFormModal
       v-if="showUpload"
       v-model="showUpload"
-      title="Cargar documentos"
+      wide
+      title="Cargar nuevo expediente"
       subtitle="Subí fichas en PDF o imagen. Se crearán casos nuevos y entrarán al procesamiento automático."
-      assist-flow-id="cargar-ficha"
-      :assist-context="uploadAssistContext"
-      @focus-field="focusUploadField"
     >
-      <form class="modal-form" @submit.prevent="onUpload">
+      <form class="modal-form" @submit.prevent="solicitarConfirmacionCarga">
         <label class="label">Nombre de referencia</label>
         <input
           v-model="referenciaCarga"
@@ -63,10 +52,9 @@
           required
           maxlength="160"
           placeholder="Ej. Balance TGS, Balance Clínica, Balance Loma Negra"
-          data-assist-field="referencia"
         />
         <p class="hint">Nombre con el que identificás esta ficha en la bandeja.</p>
-        <div data-assist-field="files">
+        <div>
           <FileDropzone
             v-model="selectedFiles"
             accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
@@ -75,14 +63,16 @@
             :busy="uploading"
           />
         </div>
-        <label class="label">Email remitente (opcional — acuse)</label>
+        <label class="label">Email remitente (opcional)</label>
         <input
           v-model="remitenteEmail"
           class="input"
           type="email"
           placeholder="cliente@empresa.cl"
-          data-assist-field="remitenteEmail"
         />
+        <p class="hint">
+          Opcional. Si lo completás, enviamos un mail de confirmación a esa dirección avisando que recibimos el documento y con el número de caso.
+        </p>
         <p v-if="uploadError" class="error-msg">{{ uploadError }}</p>
         <p v-if="uploadSuccess" class="success-msg">{{ uploadSuccess }}</p>
         <div class="modal-form__actions">
@@ -90,7 +80,6 @@
           <button
             class="btn btn-primary"
             type="submit"
-            data-assist-field="submit"
             :disabled="uploading || !puedeEnviarCarga"
           >
             {{ uploading ? "Subiendo…" : "Enviar a procesamiento" }}
@@ -99,58 +88,36 @@
       </form>
     </CreateFormModal>
 
+    <CargaProcesamientoConfirmModal
+      v-model="showConfirmCarga"
+      :referencia="referenciaCarga.trim()"
+      :nombres-archivos="selectedFiles.map((f) => f.name)"
+      :remitente-email="remitenteEmail"
+      :confirmando="uploading"
+      @confirm="confirmarEnvioCarga"
+    />
+
     <div class="card filters">
-      <label class="label">Estado</label>
-      <select v-model="filtroEstado" class="input" @change="load()">
-        <option :value="FILTRO_SIN_ERROR">Todos menos error</option>
-        <option value="">Todos (incl. error)</option>
-        <option v-for="(label, key) in ESTADO_LABELS" :key="key" :value="key">{{ label }}</option>
-      </select>
-      <label class="label">Confianza</label>
-      <select v-model="filtroSemaforo" class="input" @change="load()">
-        <option value="">Todas</option>
-        <option value="verde">Alta</option>
-        <option value="amarillo">Media — revisar</option>
-        <option value="rojo">Baja — alerta</option>
-      </select>
-      <label class="checkbox-label">
-        <input v-model="soloColaRevision" type="checkbox" @change="load()" />
-        Solo cola revisión
-      </label>
-      <label class="checkbox-label">
-        <input v-model="soloPendientesAnalista" type="checkbox" @change="load()" />
-        Pendientes analista (Q.4)
-      </label>
+      <EstadoMultiSelect
+        v-model="filtroEstados"
+        label="Estado"
+        :labels="ESTADO_LABELS"
+        @change="load()"
+      />
       <input
         v-model="busquedaGlobal"
         class="input search-global"
         placeholder="Buscar referencia, caso o contribuyente…"
         @input="onBuscar"
       />
-      <button
-        class="btn btn-ghost btn-refresh"
-        type="button"
-        title="Actualizar lista"
-        aria-label="Actualizar lista"
-        :disabled="loading"
-        @click="load"
-      >
-        <i :class="['fas fa-arrows-rotate', { 'fa-spin': loading }]" aria-hidden="true"></i>
-        <span class="btn-refresh__label">Actualizar</span>
-      </button>
-    </div>
-    <div v-if="casosTrabados.length && !bulkReinicioRunning" class="card trabados-banner">
-      <div class="trabados-banner__text">
-        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-        <span>
-          <strong>{{ casosTrabados.length }}</strong>
-          {{ casosTrabados.length === 1 ? "ficha trabada" : "fichas trabadas" }}
-          en procesamiento o error — podés reiniciarlas en fila con foja cero.
-        </span>
-      </div>
-      <button class="btn btn-primary btn-sm" type="button" @click="abrirBulkReinicio">
-        Reprocesar todas
-      </button>
+      <label class="filters__check">
+        <input
+          v-model="ocultarErrorArchivados"
+          type="checkbox"
+          @change="load()"
+        />
+        <span>No mostrar errores ni archivados</span>
+      </label>
     </div>
     <div v-if="bulkReinicioRunning" class="card trabados-banner trabados-banner--running">
       <div class="trabados-banner__text">
@@ -204,43 +171,115 @@
     />
 
     <div class="card casos-table-wrap">
-      <table v-if="items.length" class="casos-table">
+      <table v-if="sortedItems.length" class="casos-table">
         <thead>
           <tr>
-            <th>Número</th>
-            <th>Referencia</th>
-            <th class="th-compact th-canal">Canal</th>
-            <th class="th-estado">Estado</th>
-            <th title="Verde: lectura confiable · Amarillo: revisar · Rojo: requiere atención. El % es la confianza de clasificación.">
-              Semáforo
+            <th>
+              <button type="button" class="th-sort" :aria-sort="ariaSort('numero')" @click="toggleSort('numero')">
+                Número <i :class="sortIcon('numero')" aria-hidden="true"></i>
+              </button>
             </th>
-            <th class="th-compact">Progreso</th>
+            <th>
+              <button type="button" class="th-sort" :aria-sort="ariaSort('referencia')" @click="toggleSort('referencia')">
+                Referencia <i :class="sortIcon('referencia')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-compact th-canal">
+              <button type="button" class="th-sort" :aria-sort="ariaSort('canal')" @click="toggleSort('canal')">
+                Canal <i :class="sortIcon('canal')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-estado">
+              <button
+                type="button"
+                class="th-sort"
+                title="Estado del expediente en el flujo"
+                :aria-sort="ariaSort('estado')"
+                @click="toggleSort('estado')"
+              >
+                Estado <i :class="sortIcon('estado')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-proc-estado">
+              <button
+                type="button"
+                class="th-sort th-sort--stack"
+                title="Estado procesamiento — En curso: activo · Detenido: sin avance ni job en cola"
+                :aria-sort="ariaSort('procEstado')"
+                @click="toggleSort('procEstado')"
+              >
+                <span class="th-stack">
+                  <span>Estado</span>
+                  <span>proceso</span>
+                </span>
+                <i :class="sortIcon('procEstado')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th>
+              <button
+                type="button"
+                class="th-sort"
+                title="Verde: lectura confiable · Amarillo: revisar · Rojo: requiere atención. El % es la confianza de clasificación."
+                :aria-sort="ariaSort('confianza')"
+                @click="toggleSort('confianza')"
+              >
+                Semáforo <i :class="sortIcon('confianza')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-compact th-cuad">
+              <button
+                type="button"
+                class="th-sort"
+                title="Diferencia relativa entre Activo y Pasivo + Patrimonio neto (última validación)"
+                :aria-sort="ariaSort('cuad')"
+                @click="toggleSort('cuad')"
+              >
+                Δ Cuad. <i :class="sortIcon('cuad')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-compact">
+              <button type="button" class="th-sort" :aria-sort="ariaSort('progreso')" @click="toggleSort('progreso')">
+                Progreso <i :class="sortIcon('progreso')" aria-hidden="true"></i>
+              </button>
+            </th>
             <th title="Verde: listo · Azul: procesando · Rojo: detenido · Gris: pendiente. Pasá el mouse para el detalle.">
               Etapas
             </th>
-            <th
-              class="th-compact th-filas"
-              title="Cuántas filas contables trae el PDF: cuentas, rubros y montos que el sistema pudo leer"
-            >
-              Filas que trae
+            <th class="th-compact th-filas">
+              <button
+                type="button"
+                class="th-sort"
+                title="Cuántas filas contables trae el PDF: cuentas, rubros y montos que el sistema pudo leer"
+                :aria-sort="ariaSort('filas')"
+                @click="toggleSort('filas')"
+              >
+                Filas que trae <i :class="sortIcon('filas')" aria-hidden="true"></i>
+              </button>
             </th>
-            <th class="th-compact th-fecha">Creado</th>
-            <th></th>
+            <th class="th-compact th-fecha">
+              <button type="button" class="th-sort" :aria-sort="ariaSort('createdAt')" @click="toggleSort('createdAt')">
+                Creado <i :class="sortIcon('createdAt')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="th-actions" aria-label="Acciones"></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in items" :key="c.id" :class="{ 'row-processing': casoEnProceso(c) }">
+          <tr
+            v-for="c in sortedItems"
+            :key="c.id"
+            :class="{ 'row-processing': casoEnProceso(c) && !esCasoTrabado(c) }"
+          >
             <td class="td-numero">
               <span class="td-numero__line">
-                <strong>{{ c.numero }}</strong>
+                {{ c.numero }}
                 <span
-                  v-if="casoEnProceso(c)"
+                  v-if="casoEnProceso(c) && !esCasoTrabado(c)"
                   class="badge processing badge--icon"
                   title="Procesando documento"
                 >
                   <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
                 </span>
-                <span v-if="c.procesamientoPausado" class="badge pausado">Pausado</span>
                 <span v-if="c.prioridad" class="badge prio">P{{ c.prioridad }}</span>
               </span>
             </td>
@@ -252,6 +291,17 @@
               <span class="badge badge--estado" :class="c.estado" :title="estadoLabel(c.estado)">
                 {{ estadoLabel(c.estado) }}
               </span>
+            </td>
+            <td class="td-proc-estado">
+              <span
+                v-if="estadoProcesamientoLabel(c)"
+                class="badge badge--proc-estado"
+                :class="`badge--proc-estado--${estadoProcesamientoLabel(c) === 'En curso' ? 'curso' : 'detenido'}`"
+                :title="estadoProcesamientoTooltip(c)"
+              >
+                {{ estadoProcesamientoLabel(c) }}
+              </span>
+              <span v-else class="td-proc-estado__na">—</span>
             </td>
             <td class="td-confianza">
               <button
@@ -271,6 +321,24 @@
                   </span>
                 </span>
               </button>
+            </td>
+            <td class="td-cuad">
+              <button
+                v-if="c.diferenciaCuadraturaPct != null"
+                type="button"
+                class="td-cuad__btn"
+                :title="`${cuadraturaTooltip(c)} · Clic para ver totales`"
+                :aria-label="`Ver cuadratura: ${formatDiferenciaCuadraturaPct(c.diferenciaCuadraturaPct)}`"
+                @click.stop="abrirCuadraturaModal(c)"
+              >
+                <span
+                  class="td-cuad__pct"
+                  :class="c.cuadraturaOk ? 'td-cuad__pct--ok' : 'td-cuad__pct--fail'"
+                >
+                  {{ formatDiferenciaCuadraturaPct(c.diferenciaCuadraturaPct) }}
+                </span>
+              </button>
+              <span v-else class="td-cuad__na" :title="cuadraturaTooltip(c)">—</span>
             </td>
             <td class="td-progreso">
               <button
@@ -315,74 +383,105 @@
               {{ c.lineasCount ?? 0 }}
             </td>
             <td class="td-fecha">{{ formatDateCompacto(c.createdAt) }}</td>
-            <td class="actions-cell">
+            <td class="td-actions">
+              <div class="actions-cell">
               <button
-                class="btn btn-ghost btn-action-stack"
+                class="action-icon"
                 type="button"
                 title="Editar ficha"
+                aria-label="Editar ficha"
                 @click="abrirEditar(c)"
               >
                 <i class="fas fa-pen" aria-hidden="true"></i>
-                <span>Editar</span>
               </button>
               <button
-                class="btn btn-ghost btn-action-stack"
+                v-if="(c.documentosCount ?? 0) > 0"
+                class="action-icon"
+                type="button"
+                title="Ver archivos del expediente"
+                aria-label="Ver archivos del expediente"
+                @click="abrirArchivos(c)"
+              >
+                <i class="fas fa-folder-tree" aria-hidden="true"></i>
+              </button>
+              <button
+                class="action-icon"
                 type="button"
                 title="Ver detalle"
+                aria-label="Ver detalle"
                 @click="verDetalle(c.id)"
               >
                 <i class="fas fa-circle-info" aria-hidden="true"></i>
-                <span>Detalle</span>
               </button>
               <RouterLink
                 :to="{ name: 'caso-expediente', params: { id: c.id }, query: { from: 'casos' } }"
-                class="btn btn-ghost btn-action-stack"
+                class="action-icon"
                 title="Expediente"
+                aria-label="Expediente"
               >
                 <i class="fas fa-folder-open" aria-hidden="true"></i>
-                <span>Exped.</span>
               </RouterLink>
               <RouterLink
                 v-if="puedeIrARevision(c.estado)"
                 :to="{ name: 'caso-revision', params: { id: c.id } }"
-                :class="[
-                  'btn btn-action-stack',
-                  c.estado === CasoEstado.EN_REVISION ? 'btn-primary' : 'btn-ghost',
-                ]"
+                class="action-icon"
+                :class="{ 'action-icon--brand': c.estado === CasoEstado.EN_REVISION }"
                 :title="c.estado === CasoEstado.EN_REVISION ? 'Revisar' : 'Revisión'"
+                :aria-label="c.estado === CasoEstado.EN_REVISION ? 'Revisar' : 'Revisión'"
               >
                 <i class="fas fa-clipboard-check" aria-hidden="true"></i>
-                <span>{{ c.estado === CasoEstado.EN_REVISION ? "Revisar" : "Revisión" }}</span>
               </RouterLink>
               <RouterLink
                 v-if="puedeVerInforme(c.hasInforme)"
                 :to="{ name: 'caso-informe', params: { id: c.id } }"
-                class="btn btn-primary btn-action-stack"
+                class="action-icon action-icon--brand"
                 title="Ver informe"
+                aria-label="Ver informe"
               >
                 <i class="fas fa-file-lines" aria-hidden="true"></i>
-                <span>Informe</span>
               </RouterLink>
               <button
                 v-if="casoTieneFalloExtraccionVisible(c.estado)"
-                class="btn btn-action-stack btn-error-outline"
+                class="action-icon action-icon--danger"
                 type="button"
                 :title="c.estado === CasoEstado.PENDIENTE_CALIDAD ? 'Ver detalle de la extracción fallida' : 'Ver error'"
+                :aria-label="c.estado === CasoEstado.PENDIENTE_CALIDAD ? 'Ver detalle de la extracción fallida' : 'Ver error'"
                 @click="verError(c.id)"
               >
                 <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                <span>{{ c.estado === CasoEstado.PENDIENTE_CALIDAD ? "Fallo" : "Error" }}</span>
               </button>
               <button
                 v-if="puedeReiniciarFojaCero(c)"
-                class="btn btn-action-stack btn-reinicio-grid"
+                class="action-icon action-icon--warn"
                 type="button"
-                :title="reinicioPorProcesamientoMuerto(c.estado) ? 'Procesamiento trabado — volver a foja cero' : 'Reiniciar a foja cero'"
-                @click="abrirReinicio(c)"
+                :disabled="bulkReinicioRunning || reinicioSaving || reinicioIdsInFlight.has(c.id)"
+                :title="reinicioPorProcesamientoMuerto(c.estado) ? `Solo ${c.numero} — procesamiento trabado` : `Solo ${c.numero} — foja cero`"
+                :aria-label="`Foja cero solo ${c.numero}`"
+                @click.stop="abrirReinicio(c)"
               >
                 <i class="fas fa-rotate-left" aria-hidden="true"></i>
-                <span>Foja 0</span>
               </button>
+              <button
+                v-if="puedeArchivar(c.estado)"
+                class="action-icon action-icon--muted"
+                type="button"
+                title="Archivar — ocultar de la bandeja activa"
+                aria-label="Archivar"
+                @click="confirmarArchivar(c)"
+              >
+                <i class="fas fa-box-archive" aria-hidden="true"></i>
+              </button>
+              <button
+                v-if="puedeDesarchivar(c.estado)"
+                class="action-icon action-icon--muted"
+                type="button"
+                title="Desarchivar — volver a la cola de procesamiento"
+                aria-label="Desarchivar"
+                @click="confirmarDesarchivar(c)"
+              >
+                <i class="fas fa-box-open" aria-hidden="true"></i>
+              </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -470,10 +569,35 @@
       :subtitle="reinicioCaso ? `${reinicioCaso.numero}${reinicioCaso.referencia ? ` · ${reinicioCaso.referencia}` : ''}` : ''"
     >
       <div v-if="reinicioCaso" class="reinicio-modal">
-        <p class="reinicio-modal__lead">
-          El sistema <strong>vuelve a leer el archivo original con IA</strong> y arranca todo como si
-          recién lo hubieras subido: preproceso, extracción, clasificación y validación.
+        <p class="reinicio-modal__scope">
+          <i class="fas fa-bullseye" aria-hidden="true"></i>
+          <span>
+            <strong>Solo este expediente:</strong> {{ reinicioCaso.numero }}
+            <span v-if="reinicioCaso.referencia"> · {{ reinicioCaso.referencia }}</span>.
+            Los demás casos de la bandeja <strong>no</strong> se modifican.
+          </span>
         </p>
+        <p class="reinicio-modal__lead">
+          El sistema <strong>vuelve a leer el archivo original con IA</strong>. Elegí si reutilizar
+          el preproceso guardado (más rápido) o reprocesar el PDF completo.
+        </p>
+        <fieldset class="reinicio-modal__modo">
+          <legend class="label">Modo de foja cero</legend>
+          <label class="reinicio-modal__radio">
+            <input v-model="reinicioModo" type="radio" value="reutilizar" />
+            <span>
+              <strong>Reutilizar preproceso</strong> — salta cola/preproceso PDF; va directo a
+              extracción IA con las páginas ya generadas (si existen de una corrida anterior).
+            </span>
+          </label>
+          <label class="reinicio-modal__radio">
+            <input v-model="reinicioModo" type="radio" value="completo" />
+            <span>
+              <strong>Desde cero</strong> — vuelve a preprocesar el PDF (render de páginas) y luego
+              extrae con IA. Usá esto si cambió el archivo o el preproceso falló.
+            </span>
+          </label>
+        </fieldset>
         <ul class="reinicio-modal__list">
           <li>Se borran líneas, metadatos extraídos y validaciones previas</li>
           <li>El PDF en storage se reutiliza — no hace falta volver a cargarlo</li>
@@ -502,7 +626,13 @@
           :disabled="reinicioSaving"
           @click="confirmReinicio"
         >
-          {{ reinicioSaving ? "Reiniciando…" : "Sí, volver a foja cero" }}
+          {{
+            reinicioSaving
+              ? "Reiniciando…"
+              : reinicioCaso
+                ? `Sí, solo ${reinicioCaso.numero}`
+                : "Sí, volver a foja cero"
+          }}
         </button>
       </template>
     </CreateFormModal>
@@ -510,10 +640,17 @@
     <CreateFormModal
       v-if="showBulkReinicioModal"
       v-model="showBulkReinicioModal"
-      title="Reprocesar fichas trabadas"
-      :subtitle="`${casosTrabados.length} caso(s) en cola de reinicio`"
+      title="Acción masiva — todos los trabados"
+      :subtitle="`${casosTrabados.length} expediente(s) distintos (no es foja cero de una sola fila)`"
     >
       <div class="reinicio-modal">
+        <p class="reinicio-modal__scope reinicio-modal__scope--warn">
+          <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+          <span>
+            Esto reinicia <strong>todos</strong> los casos listados abajo. Para un solo PDF usá el
+            ícono ↺ en la fila del caso.
+          </span>
+        </p>
         <p class="reinicio-modal__lead">
           Cada ficha vuelve a <strong>foja cero</strong>: se re-lee el PDF con IA y entra al
           pipeline de a uno (preproceso → extracción → clasificación → validación).
@@ -531,6 +668,13 @@
             <span class="badge" :class="c.estado">{{ estadoLabel(c.estado) }}</span>
           </li>
         </ul>
+        <label class="reinicio-modal__ack">
+          <input v-model="bulkReinicioAck" type="checkbox" />
+          <span>
+            Confirmo reiniciar los <strong>{{ casosTrabados.length }}</strong> expedientes listados
+            (acción masiva, independiente de la fila ↺).
+          </span>
+        </label>
         <p v-if="bulkReinicioError" class="error-msg">{{ bulkReinicioError }}</p>
       </div>
       <template #footer>
@@ -545,10 +689,14 @@
         <button
           class="btn btn-primary btn-reinicio-confirm"
           type="button"
-          :disabled="bulkReinicioRunning || !casosTrabados.length"
+          :disabled="bulkReinicioRunning || !casosTrabados.length || !bulkReinicioAck"
           @click="confirmBulkReinicio"
         >
-          {{ bulkReinicioRunning ? "Reiniciando…" : `Sí, reprocesar ${casosTrabados.length}` }}
+          {{
+            bulkReinicioRunning
+              ? "Reiniciando…"
+              : `Sí, reiniciar los ${casosTrabados.length} trabados`
+          }}
         </button>
       </template>
     </CreateFormModal>
@@ -570,6 +718,17 @@
           maxlength="160"
           placeholder="Nombre identificatorio en la bandeja"
         />
+        <label class="label" for="edit-email">Correo del remitente (opcional)</label>
+        <input
+          id="edit-email"
+          v-model="editRemitenteEmail"
+          class="input"
+          type="email"
+          maxlength="254"
+          placeholder="cliente@empresa.cl"
+          autocomplete="email"
+        />
+        <p class="hint">Para acuse de recepción y notificaciones operativas del expediente.</p>
         <label class="label" for="edit-canal">Canal de recepción</label>
         <select id="edit-canal" v-model="editCanal" class="input">
           <option v-for="opt in CANAL_OPTIONS" :key="opt.value" :value="opt.value">
@@ -626,13 +785,32 @@
       @ver-detalle="verDetalleDesdeProcesamiento"
     />
 
+    <CasoArchivosModal
+      v-model="archivosModalOpen"
+      :caso-id="archivosCaso?.id"
+      :caso-numero="archivosCaso?.numero"
+      :caso-referencia="archivosCaso?.referencia"
+    />
+
     <ConfianzaSemaforoPanel
       :open="!!confianzaPanel"
       :caso-id="confianzaPanel?.casoId ?? ''"
       :confianza-global="confianzaPanel?.confianzaGlobal"
-      :semaforo="confianzaPanel?.semaforo"
+      :semaforo="confianzaPanel?.semaforoValidacion"
       :anchor-rect="confianzaPanel?.rect ?? null"
       @close="cerrarConfianzaPanel"
+      @updated="onConfianzaResumenUpdated"
+    />
+
+    <CuadraturaCasoModal
+      v-model:open="showCuadraturaModal"
+      :caso-id="cuadraturaModalCaso?.id"
+      :caso-numero="cuadraturaModalCaso?.numero"
+      :referencia="cuadraturaModalCaso?.referencia"
+      :moneda="cuadraturaModalCaso?.moneda"
+      :totales="cuadraturaModalCaso?.cuadraturaTotales"
+      :cuadratura-ok="cuadraturaModalCaso?.cuadraturaOk"
+      :diferencia-pct="cuadraturaModalCaso?.diferenciaCuadraturaPct"
     />
 
     <CasoDetalleModal
@@ -654,7 +832,9 @@ import {
   CasoEstado,
   casoReferenciaGrilla,
   confianzaSemaforoTooltip,
+  formatDiferenciaCuadraturaPct,
   semaforoDesdeConfianza,
+  semaforoEfectivo,
   type CasoDto,
   type LineaContableDto,
 } from "@ffa/shared";
@@ -672,16 +852,23 @@ import ProcesamientoModal from "../components/ProcesamientoModal.vue";
 import CasosIngestFlow from "../components/CasosIngestFlow.vue";
 import PipelineF1Lights from "../components/PipelineF1Lights.vue";
 import ConfianzaSemaforoPanel from "../components/ConfianzaSemaforoPanel.vue";
+import CargaProcesamientoConfirmModal from "../components/CargaProcesamientoConfirmModal.vue";
+import EstadoMultiSelect from "../components/EstadoMultiSelect.vue";
+import CasoArchivosModal from "../components/CasoArchivosModal.vue";
+import CuadraturaCasoModal from "../components/CuadraturaCasoModal.vue";
 import SemaforoIndicator from "../components/SemaforoIndicator.vue";
 import CreateFormModal from "../components/CreateFormModal.vue";
 import FileDropzone from "../components/FileDropzone.vue";
 import PageHeader from "../components/PageHeader.vue";
 import { useCloseOnRouteLeave } from "../composables/useCloseOnRouteLeave";
-import { useCreateAssistListener } from "../utils/useCreateAssistListener";
 import { apiErrorMessage } from "../utils/apiError";
 import {
+  esCasoProcesamientoTrabado,
   esCasoTrabadoRecuperable,
   MOTIVO_REINICIO_TRABADO,
+  type ProgresoTrabadoContext,
+  puedeArchivar,
+  puedeDesarchivar,
   puedeIrARevision,
   puedeReiniciarFojaCero,
   puedeVerInforme,
@@ -701,33 +888,112 @@ const CANAL_OPTIONS = [
   { value: "manual_alternativa", label: "Manual / alternativa" },
 ] as const;
 
-/** Valor especial de filtro — API excluye casos en estado error. */
-const FILTRO_SIN_ERROR = "sin_error";
+/** Valor especial de filtro — API excluye casos en error y archivado. */
+const FILTRO_ACTIVOS = "activos";
 
 const ESTADO_LABELS = CASO_ESTADO_LABELS;
 
-const SEMAFORO_RANK: Record<string, number> = { rojo: 3, amarillo: 2, verde: 1 };
-
 /** Semáforo de grilla: el más restrictivo entre confianza % y validación contable. */
 function semaforoGrillaDisplay(c: CasoDto): string | undefined {
-  const fromPct = semaforoDesdeConfianza(c.confianzaGlobal);
-  const validacion = c.semaforo;
-  if (!fromPct && !validacion) return undefined;
-  if (!fromPct) return validacion;
-  if (!validacion) return fromPct;
-  return (SEMAFORO_RANK[fromPct] ?? 0) >= (SEMAFORO_RANK[validacion] ?? 0) ? fromPct : validacion;
+  return semaforoEfectivo(semaforoDesdeConfianza(c.confianzaGlobal), c.semaforo);
+}
+
+function progresoTrabadoCtx(c: CasoDto): ProgresoTrabadoContext {
+  return (
+    progresoMotorMap.value[c.id] ?? {
+      pausado: c.procesamientoPausado,
+    }
+  );
+}
+
+/** Tras foja cero: no marcar trabada mientras el job arranca; sí si sigue sin motor activo. */
+function esReinicioActivo(c: CasoDto): boolean {
+  if (!procesandoIds.value[c.id]) return false;
+  const ctx = progresoTrabadoCtx(c);
+  const motor = ctx.motorEstado;
+  const secs = ctx.segundosEnEtapa ?? 0;
+  if (motor === "inactivo") return false;
+  if (motor === "activo" || motor === "en_cola") return true;
+  if (motor === "desconocido" || motor == null) return secs < 120;
+  return true;
+}
+
+function esCasoTrabado(c: CasoDto): boolean {
+  return esCasoProcesamientoTrabado(c, progresoTrabadoCtx(c), {
+    reinicioEnCurso: esReinicioActivo(c),
+  });
+}
+
+function estadoProcesamientoLabel(c: CasoDto): "En curso" | "Detenido" | null {
+  if (esCasoTrabado(c)) return "Detenido";
+  if (casoEnProceso(c)) return "En curso";
+  return null;
+}
+
+function estadoProcesamientoTooltip(c: CasoDto): string {
+  const label = estadoProcesamientoLabel(c);
+  if (label === "Detenido") return trabadaTooltip(c);
+  if (label === "En curso") {
+    return progresoTrabadoCtx(c).motorEstado === "en_cola"
+      ? "En cola — esperando turno en el worker."
+      : "Procesamiento automático en marcha.";
+  }
+  return "Sin procesamiento automático activo.";
+}
+
+function trabadaTooltip(c: CasoDto): string {
+  if (esReinicioActivo(c)) {
+    return "Reinicio en curso — procesando con foja cero.";
+  }
+  const motor = progresoTrabadoCtx(c).motorEstado;
+  if (motor === "activo" || motor === "en_cola") {
+    return "Procesando — job en curso o en cola.";
+  }
+  if (c.estado === CasoEstado.ERROR) {
+    return "Trabada — error en procesamiento. Usá «Reprocesar» arriba o Foja cero en la fila.";
+  }
+  return `Trabada — sin avance en «${estadoLabel(c.estado)}». Usá «Reprocesar» arriba o Foja cero en la fila.`;
+}
+
+function cuadraturaTooltip(c: CasoDto): string {
+  if (c.diferenciaCuadraturaPct == null) {
+    return "Sin validación de cuadratura aún";
+  }
+  if (c.cuadraturaOk) {
+    return "Cuadratura OK: Activo = Pasivo + Patrimonio neto";
+  }
+  return `Desbalance: ${formatDiferenciaCuadraturaPct(c.diferenciaCuadraturaPct)} entre Activo y Pasivo + Patrimonio neto`;
+}
+
+function abrirCuadraturaModal(c: CasoDto): void {
+  cuadraturaModalCaso.value = c;
+  showCuadraturaModal.value = true;
+}
+
+const showCuadraturaModal = ref(false);
+const cuadraturaModalCaso = ref<CasoDto | null>(null);
+
+const archivosModalOpen = ref(false);
+const archivosCaso = ref<CasoDto | null>(null);
+
+function abrirArchivos(c: CasoDto): void {
+  archivosCaso.value = c;
+  archivosModalOpen.value = true;
 }
 
 const showReinicioModal = ref(false);
 const reinicioCaso = ref<CasoDto | null>(null);
 const reinicioMotivo = ref("");
+const reinicioModo = ref<"reutilizar" | "completo">("reutilizar");
 const reinicioSaving = ref(false);
 const reinicioError = ref("");
 
 const casosTrabados = ref<CasoDto[]>([]);
 const showBulkReinicioModal = ref(false);
 const bulkReinicioRunning = ref(false);
+const bulkReinicioAck = ref(false);
 const bulkReinicioError = ref("");
+const reinicioIdsInFlight = ref(new Set<string>());
 const bulkReinicioDone = ref(0);
 const bulkReinicioTotal = ref(0);
 const bulkReinicioActual = ref("");
@@ -740,6 +1006,7 @@ const bulkReinicioPct = computed(() =>
 const showEditModal = ref(false);
 const editCaso = ref<CasoDto | null>(null);
 const editReferencia = ref("");
+const editRemitenteEmail = ref("");
 const editCanal = ref("portal");
 const editPrioridad = ref(0);
 const editObservaciones = ref("");
@@ -751,6 +1018,7 @@ const total = ref(0);
 const loading = ref(false);
 const listError = ref("");
 const showUpload = ref(false);
+const showConfirmCarga = ref(false);
 const uploading = ref(false);
 const uploadError = ref<string | null>(null);
 const uploadSuccess = ref<string | null>(null);
@@ -760,31 +1028,142 @@ const selectedFiles = ref<File[]>([]);
 const puedeEnviarCarga = computed(
   () => referenciaCarga.value.trim().length >= 2 && selectedFiles.value.length > 0
 );
-const uploadAssistContext = computed(() => ({
-  referencia: referenciaCarga.value.trim(),
-  filesCount: selectedFiles.value.length,
-  remitenteEmail: remitenteEmail.value.trim(),
-  submit: puedeEnviarCarga.value,
-}));
-
-function openUploadAssist(): void {
-  showUpload.value = true;
-}
-
-function focusUploadField(field: string): void {
-  showUpload.value = true;
-  if (field === "files" || field === "referencia") return;
-}
-
-useCreateAssistListener("cargar-ficha", () => {
-  showUpload.value = true;
-}, focusUploadField);
-
 useCloseOnRouteLeave(showUpload);
+useCloseOnRouteLeave(showConfirmCarga);
+
+watch(showConfirmCarga, (open) => {
+  if (open || uploading.value || !puedeEnviarCarga.value) return;
+  showUpload.value = true;
+});
 useCloseOnRouteLeave(showEditModal);
 useCloseOnRouteLeave(showReinicioModal);
 useCloseOnRouteLeave(showBulkReinicioModal);
-const filtroEstado = ref(FILTRO_SIN_ERROR);
+const filtroEstados = ref<string[]>([]);
+const ocultarErrorArchivados = ref(true);
+
+const ESTADOS_OCULTOS_BANDEJA = [CasoEstado.ERROR, CasoEstado.ARCHIVADO] as const;
+
+type CasosSortCol =
+  | "numero"
+  | "referencia"
+  | "canal"
+  | "estado"
+  | "procEstado"
+  | "confianza"
+  | "cuad"
+  | "progreso"
+  | "filas"
+  | "createdAt";
+
+const SORT_API_COLUMNS = new Set<CasosSortCol>([
+  "numero",
+  "referencia",
+  "canal",
+  "estado",
+  "confianza",
+  "createdAt",
+]);
+
+const sortCol = ref<CasosSortCol>("createdAt");
+const sortDir = ref<"asc" | "desc">("desc");
+
+function filtrosListadoCasos(): {
+  estado?: string;
+  estados?: string[];
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+} {
+  let estados = filtroEstados.value.length ? [...filtroEstados.value] : undefined;
+  let base: { estado?: string; estados?: string[] };
+  if (ocultarErrorArchivados.value) {
+    if (estados?.length) {
+      estados = estados.filter((e) => !ESTADOS_OCULTOS_BANDEJA.includes(e as CasoEstado));
+    }
+    if (!estados?.length) {
+      base = { estado: FILTRO_ACTIVOS };
+    } else {
+      base = { estados };
+    }
+  } else if (estados?.length) {
+    base = { estados };
+  } else {
+    base = {};
+  }
+  if (SORT_API_COLUMNS.has(sortCol.value)) {
+    return { ...base, sortBy: sortCol.value, sortDir: sortDir.value };
+  }
+  return base;
+}
+
+function toggleSort(col: CasosSortCol): void {
+  if (sortCol.value === col) {
+    sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
+  } else {
+    sortCol.value = col;
+    sortDir.value =
+      col === "createdAt" || col === "progreso" || col === "confianza" || col === "cuad" || col === "filas"
+        ? "desc"
+        : "asc";
+  }
+  if (SORT_API_COLUMNS.has(col)) void load();
+}
+
+function sortIcon(col: CasosSortCol): string {
+  if (sortCol.value !== col) return "fas fa-sort th-sort__icon--idle";
+  return sortDir.value === "asc" ? "fas fa-sort-up" : "fas fa-sort-down";
+}
+
+function ariaSort(col: CasosSortCol): "none" | "ascending" | "descending" {
+  if (sortCol.value !== col) return "none";
+  return sortDir.value === "asc" ? "ascending" : "descending";
+}
+
+function procEstadoSortRank(c: CasoDto): number {
+  const label = estadoProcesamientoLabel(c);
+  if (label === "Detenido") return 0;
+  if (label === "En curso") return 1;
+  return 2;
+}
+
+function compareCasosLocal(a: CasoDto, b: CasoDto): number {
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  let av: string | number;
+  let bv: string | number;
+
+  switch (sortCol.value) {
+    case "cuad":
+      av = a.diferenciaCuadraturaPct ?? Number.POSITIVE_INFINITY;
+      bv = b.diferenciaCuadraturaPct ?? Number.POSITIVE_INFINITY;
+      break;
+    case "filas":
+      av = a.lineasCount ?? -1;
+      bv = b.lineasCount ?? -1;
+      break;
+    case "progreso":
+      av = progresoMap.value[a.id] ?? -1;
+      bv = progresoMap.value[b.id] ?? -1;
+      break;
+    case "procEstado":
+      av = procEstadoSortRank(a);
+      bv = procEstadoSortRank(b);
+      break;
+    case "confianza":
+      av = a.confianzaGlobal ?? -1;
+      bv = b.confianzaGlobal ?? -1;
+      break;
+    default:
+      return 0;
+  }
+
+  if (av < bv) return -1 * dir;
+  if (av > bv) return 1 * dir;
+  return a.numero.localeCompare(b.numero, "es") * dir;
+}
+
+const sortedItems = computed(() => {
+  if (SORT_API_COLUMNS.has(sortCol.value)) return items.value;
+  return [...items.value].sort(compareCasosLocal);
+});
 
 const conteoPorEstado = computed(() => {
   const map: Record<string, number> = {};
@@ -795,22 +1174,13 @@ const conteoPorEstado = computed(() => {
 });
 
 const filtroEstadoFlowActivo = computed(() =>
-  filtroEstado.value === FILTRO_SIN_ERROR ? "" : filtroEstado.value
+  filtroEstados.value.length === 1 ? filtroEstados.value[0]! : ""
 );
 
 function filtrarDesdeFlow(estado: string): void {
-  if (!estado) {
-    filtroEstado.value = FILTRO_SIN_ERROR;
-  } else {
-    filtroEstado.value = estado;
-  }
-  soloColaRevision.value = false;
-  soloPendientesAnalista.value = false;
+  filtroEstados.value = estado ? [estado] : [];
   void load();
 }
-const filtroSemaforo = ref("");
-const soloColaRevision = ref(false);
-const soloPendientesAnalista = ref(false);
 const busquedaGlobal = ref("");
 const resultadosBusqueda = ref<{
   casos: Array<{ id: string; numero: string; referencia?: string; estado: string }>;
@@ -826,7 +1196,7 @@ const showDetalleModal = ref(false);
 const confianzaPanel = ref<{
   casoId: string;
   confianzaGlobal?: number | null;
-  semaforo?: string;
+  semaforoValidacion?: string;
   rect: DOMRect;
 } | null>(null);
 const detalleLoading = ref(false);
@@ -836,6 +1206,7 @@ const lineas = ref<LineaContableDto[]>([]);
 const detalleLineasLoading = ref(false);
 const progresoMap = ref<Record<string, number>>({});
 const progresoEtapaMap = ref<Record<string, string>>({});
+const progresoMotorMap = ref<Record<string, ProgresoTrabadoContext>>({});
 /** Casos recién subidos o en pipeline — seguir polling hasta terminar. */
 const procesandoIds = ref<Record<string, true>>({});
 const detalleProgreso = ref<CasoProgresoDto | null>(null);
@@ -991,24 +1362,109 @@ function abrirReinicio(c: CasoDto): void {
   reinicioSaving.value = false;
   reinicioError.value = "";
   reinicioCaso.value = c;
+  reinicioModo.value = reinicioPorProcesamientoMuerto(c.estado) ? "completo" : "reutilizar";
   reinicioMotivo.value = reinicioPorProcesamientoMuerto(c.estado)
     ? "Procesamiento trabado — reinicio desde bandeja"
     : "";
   showReinicioModal.value = true;
 }
 
+async function confirmarArchivar(c: CasoDto): Promise<void> {
+  const ok = window.confirm(
+    `¿Archivar la ficha ${c.numero}? Dejará de mostrarse en la bandeja activa.`
+  );
+  if (!ok) return;
+  try {
+    await api.archivarCaso(c.id);
+    void load();
+  } catch (e) {
+    listError.value = apiErrorMessage(e, "No se pudo archivar la ficha");
+  }
+}
+
+async function confirmarDesarchivar(c: CasoDto): Promise<void> {
+  const ok = window.confirm(
+    `¿Desarchivar la ficha ${c.numero}? Volverá a la cola de procesamiento.`
+  );
+  if (!ok) return;
+  try {
+    await api.reabrirCaso(c.id);
+    void load();
+  } catch (e) {
+    listError.value = apiErrorMessage(e, "No se pudo desarchivar la ficha");
+  }
+}
+
+function guardarProgresoMotor(casoId: string, p: import("@ffa/shared").CasoProgresoDto): void {
+  progresoMotorMap.value = {
+    ...progresoMotorMap.value,
+    [casoId]: {
+      motorEstado: p.motor?.estado,
+      segundosEnEtapa: p.segundosEnEtapa,
+      pausado: p.pausado,
+    },
+  };
+}
+
+/** Actualiza solo motor/progreso de casos indicados (evita re-evaluar toda la bandeja). */
+async function refreshProgresoMotorCasos(casoIds: string[]): Promise<void> {
+  const unicos = [...new Set(casoIds.filter(Boolean))];
+  if (!unicos.length || !isMounted) return;
+  await Promise.all(
+    unicos.map(async (id) => {
+      try {
+        const p = await api.getCasoProgreso(id);
+        if (!isMounted) return;
+        progresoMap.value = { ...progresoMap.value, [id]: p.progresoPct };
+        guardarProgresoMotor(id, p);
+        if (p.etapaActual) {
+          progresoEtapaMap.value = { ...progresoEtapaMap.value, [id]: p.etapaActual };
+        }
+      } catch {
+        /* ignore */
+      }
+    })
+  );
+}
+
 async function escanearCasosTrabados(): Promise<void> {
   try {
-    const trabados: CasoDto[] = [];
+    const candidatos: CasoDto[] = [];
     let page = 1;
     const limit = 50;
     while (true) {
-      const res = await api.listCasos({}, page, limit);
-      trabados.push(...res.items.filter(esCasoTrabadoRecuperable));
+      const res = await api.listCasos({ estado: FILTRO_ACTIVOS }, page, limit);
+      candidatos.push(...res.items.filter(esCasoTrabadoRecuperable));
       if (page * limit >= res.total) break;
       page += 1;
     }
     if (!isMounted) return;
+
+    const trabados: CasoDto[] = [];
+    await Promise.all(
+      candidatos.map(async (c) => {
+        try {
+          const p = await api.getCasoProgreso(c.id);
+          if (!isMounted) return;
+          guardarProgresoMotor(c.id, p);
+          if (
+            esCasoProcesamientoTrabado(c, progresoMotorMap.value[c.id], {
+              reinicioEnCurso: esReinicioActivo(c),
+            })
+          ) {
+            trabados.push(c);
+          }
+        } catch {
+          if (
+            c.estado === CasoEstado.ERROR ||
+            c.estado === CasoEstado.PENDIENTE_CALIDAD
+          ) {
+            trabados.push(c);
+          }
+        }
+      })
+    );
+
     casosTrabados.value = trabados.sort((a, b) =>
       a.numero.localeCompare(b.numero, undefined, { numeric: true })
     );
@@ -1019,6 +1475,7 @@ async function escanearCasosTrabados(): Promise<void> {
 
 async function abrirBulkReinicio(): Promise<void> {
   bulkReinicioError.value = "";
+  bulkReinicioAck.value = false;
   await escanearCasosTrabados();
   if (!casosTrabados.value.length) return;
   showBulkReinicioModal.value = true;
@@ -1026,27 +1483,39 @@ async function abrirBulkReinicio(): Promise<void> {
 
 async function confirmBulkReinicio(): Promise<void> {
   const cola = [...casosTrabados.value];
-  if (!cola.length || bulkReinicioRunning.value) return;
+  if (!cola.length || bulkReinicioRunning.value || !bulkReinicioAck.value) return;
   bulkReinicioRunning.value = true;
   bulkReinicioError.value = "";
   bulkReinicioDone.value = 0;
   bulkReinicioTotal.value = cola.length;
   showBulkReinicioModal.value = false;
+  bulkReinicioAck.value = false;
   const fallidos: string[] = [];
   for (const c of cola) {
     if (!isMounted) break;
     bulkReinicioActual.value = c.numero;
+    reinicioIdsInFlight.value = new Set([...reinicioIdsInFlight.value, c.id]);
     try {
-      const res = await api.reiniciarFojaCero(c.id, MOTIVO_REINICIO_TRABADO);
+      const res = await api.reiniciarFojaCero(c.id, {
+        motivo: MOTIVO_REINICIO_TRABADO,
+        reutilizarPreproceso: false,
+      });
+      if (res.casoNumero && res.casoNumero !== c.numero) {
+        fallidos.push(`${c.numero} (respuesta ${res.casoNumero})`);
+        continue;
+      }
       const updated = res.caso ?? c;
-      const idx = items.value.findIndex((x) => x.id === updated.id);
+      const idx = items.value.findIndex((x) => x.id === c.id);
       if (idx >= 0 && res.caso) {
         items.value[idx] = { ...items.value[idx], ...res.caso };
       }
-      marcarProcesando(updated.id, 5);
+      marcarProcesando(c.id, 5);
     } catch {
       fallidos.push(c.numero);
     } finally {
+      const next = new Set(reinicioIdsInFlight.value);
+      next.delete(c.id);
+      reinicioIdsInFlight.value = next;
       bulkReinicioDone.value += 1;
     }
   }
@@ -1062,48 +1531,60 @@ async function confirmBulkReinicio(): Promise<void> {
 }
 
 async function confirmReinicio(): Promise<void> {
-  if (!reinicioCaso.value) return;
+  const caso = reinicioCaso.value;
+  if (!caso || reinicioSaving.value || reinicioIdsInFlight.value.has(caso.id)) return;
+
+  const casoId = caso.id;
+  const casoNumero = caso.numero;
   reinicioSaving.value = true;
   reinicioError.value = "";
+  reinicioIdsInFlight.value = new Set([...reinicioIdsInFlight.value, casoId]);
+
   try {
-    const res = await api.reiniciarFojaCero(
-      reinicioCaso.value.id,
-      reinicioMotivo.value.trim() || undefined
-    );
-    const updated = res.caso ?? reinicioCaso.value;
-    const idx = items.value.findIndex((x) => x.id === updated.id);
+    const res = await api.reiniciarFojaCero(casoId, {
+      motivo: reinicioMotivo.value.trim() || undefined,
+      reutilizarPreproceso: reinicioModo.value === "reutilizar",
+    });
+    if (res.casoId && res.casoId !== casoId) {
+      throw new Error(`El servidor reinició otro caso (${res.casoNumero ?? res.casoId})`);
+    }
+    const updated = res.caso ?? caso;
+    const idx = items.value.findIndex((x) => x.id === casoId);
     if (idx >= 0 && res.caso) {
       items.value[idx] = { ...items.value[idx], ...res.caso };
     }
     cerrarReinicioModal();
-    marcarProcesando(updated.id, 5);
-    void refreshProgresoLista();
+    marcarProcesando(casoId, 5);
+    void refreshProgresoMotorCasos([casoId, ...items.value.filter(esCasoTrabado).map((x) => x.id)]);
     void escanearCasosTrabados();
-    if (detalle.value?.id === updated.id && res.caso) {
+    if (detalle.value?.id === casoId && res.caso) {
       detalle.value = { ...detalle.value, ...res.caso };
     }
   } catch (e) {
-    reinicioError.value = apiErrorMessage(e, "No se pudo reiniciar el caso");
+    reinicioError.value = apiErrorMessage(e, `No se pudo reiniciar ${casoNumero}`);
   } finally {
     reinicioSaving.value = false;
+    const next = new Set(reinicioIdsInFlight.value);
+    next.delete(casoId);
+    reinicioIdsInFlight.value = next;
   }
 }
 
 function abrirEditar(c: CasoDto): void {
   editCaso.value = c;
   editReferencia.value = c.referencia ?? "";
+  editRemitenteEmail.value = c.remitenteEmail ?? "";
   editCanal.value = c.canal || "portal";
   editPrioridad.value = c.prioridad ?? 0;
   editObservaciones.value = c.observaciones ?? "";
   editError.value = "";
   showEditModal.value = true;
-  if (!c.observaciones) {
-    void api.getCaso(c.id).then((det) => {
-      if (editCaso.value?.id === c.id) {
-        editObservaciones.value = det.observaciones ?? "";
-      }
-    }).catch(() => undefined);
-  }
+  void api.getCaso(c.id).then((det) => {
+    if (editCaso.value?.id !== c.id) return;
+    editObservaciones.value = det.observaciones ?? "";
+    editRemitenteEmail.value =
+      det.remitenteEmail ?? det.documentos[0]?.remitenteEmail ?? "";
+  }).catch(() => undefined);
 }
 
 async function guardarEdicion(): Promise<void> {
@@ -1111,6 +1592,11 @@ async function guardarEdicion(): Promise<void> {
   const ref = editReferencia.value.trim();
   if (ref.length < 2) {
     editError.value = "La referencia debe tener al menos 2 caracteres";
+    return;
+  }
+  const email = editRemitenteEmail.value.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    editError.value = "Indique un correo válido o deje el campo vacío";
     return;
   }
   editSaving.value = true;
@@ -1121,6 +1607,7 @@ async function guardarEdicion(): Promise<void> {
       canal: editCanal.value,
       prioridad: editPrioridad.value,
       observaciones: editObservaciones.value.trim() || null,
+      remitenteEmail: email || null,
     });
     const idx = items.value.findIndex((x) => x.id === updated.id);
     if (idx >= 0) {
@@ -1187,7 +1674,7 @@ function onDetalleModalChange(open: boolean): void {
     lineas.value = [];
     detalleError.value = null;
     pipelineEtapas.value = [];
-    stopDetalleProgreso();
+    stopDetalleProgreso(true);
   }
 }
 
@@ -1221,6 +1708,7 @@ async function pollProcesamientoModal(casoId: string): Promise<void> {
     ]);
     if (!isMounted) return;
     procesamientoProgreso.value = p;
+    guardarProgresoMotor(casoId, p);
     if (etapas.length) procesamientoPipeline.value = etapas;
     if (!isProcessing(p.estado)) {
       stopProcesamientoPoll();
@@ -1243,9 +1731,20 @@ function abrirConfianzaPanel(c: CasoDto, event: MouseEvent): void {
   confianzaPanel.value = {
     casoId: c.id,
     confianzaGlobal: c.confianzaGlobal,
-    semaforo: semaforoGrillaDisplay(c),
+    semaforoValidacion: c.semaforo,
     rect: el?.getBoundingClientRect() ?? new DOMRect(window.innerWidth / 2, 120, 0, 0),
   };
+}
+
+function onConfianzaResumenUpdated(resumen: import("@ffa/shared").ConfianzaResumenDto): void {
+  const idx = items.value.findIndex((c) => c.id === resumen.casoId);
+  if (idx < 0) return;
+  const c = items.value[idx];
+  if (resumen.confianzaClasificacion != null) c.confianzaGlobal = resumen.confianzaClasificacion;
+  if (resumen.semaforoValidacion != null) c.semaforo = resumen.semaforoValidacion;
+  if (confianzaPanel.value?.casoId === resumen.casoId && resumen.confianzaClasificacion != null) {
+    confianzaPanel.value.confianzaGlobal = resumen.confianzaClasificacion;
+  }
 }
 
 function cerrarConfianzaPanel(): void {
@@ -1269,6 +1768,7 @@ async function abrirProcesamiento(c: CasoDto): Promise<void> {
     procesamientoProgreso.value = p;
     procesamientoPipeline.value = etapas;
     progresoMap.value = { ...progresoMap.value, [c.id]: p.progresoPct };
+    guardarProgresoMotor(c.id, p);
     if (p.etapaActual) {
       progresoEtapaMap.value = { ...progresoEtapaMap.value, [c.id]: p.etapaActual };
     }
@@ -1324,6 +1824,7 @@ async function refreshProgresoLista(): Promise<void> {
         if (!isMounted) return;
 
         progresoMap.value = { ...progresoMap.value, [c.id]: p.progresoPct };
+        guardarProgresoMotor(c.id, p);
         if (p.etapaActual) {
           progresoEtapaMap.value = { ...progresoEtapaMap.value, [c.id]: p.etapaActual };
         }
@@ -1343,18 +1844,17 @@ async function refreshProgresoLista(): Promise<void> {
   );
 
   void refreshPipelineCasos(processing.map((c) => c.id));
+
+  if (casosTrabados.value.length) {
+    casosTrabados.value = casosTrabados.value.filter((c) => esCasoTrabado(c));
+  }
 }
 
 async function load(): Promise<void> {
   loading.value = true;
   listError.value = "";
   try {
-    const res = await api.listCasos({
-      estado: filtroEstado.value !== "" ? filtroEstado.value : undefined,
-      semaforo: filtroSemaforo.value || undefined,
-      colaRevision: soloColaRevision.value || undefined,
-      pendientesAnalista: soloPendientesAnalista.value || undefined,
-    });
+    const res = await api.listCasos(filtrosListadoCasos());
     items.value = res.items;
     total.value = res.total;
     void refreshPipelineCasos(res.items.map((c) => c.id));
@@ -1367,21 +1867,21 @@ async function load(): Promise<void> {
   }
 }
 
-function stopDetalleProgreso(): void {
+function stopDetalleProgreso(clearData = false): void {
   if (detalleProgresoTimer) {
     clearInterval(detalleProgresoTimer);
     detalleProgresoTimer = null;
   }
-  detalleProgreso.value = null;
+  if (clearData) detalleProgreso.value = null;
 }
 
 async function pollDetalleProgreso(casoId: string): Promise<void> {
   try {
     const p = await api.getCasoProgreso(casoId);
     detalleProgreso.value = p;
-    if (!isProcessing(p.estado)) stopDetalleProgreso();
+    if (!isProcessing(p.estado)) stopDetalleProgreso(false);
   } catch {
-    stopDetalleProgreso();
+    stopDetalleProgreso(false);
   }
 }
 
@@ -1424,7 +1924,7 @@ async function filtrarPorContribuyente(contribuyenteId: string): Promise<void> {
 }
 
 async function verDetalle(id: string): Promise<void> {
-  stopDetalleProgreso();
+  stopDetalleProgreso(true);
   showDetalleModal.value = true;
   detalleLoading.value = true;
   detalleLineasLoading.value = true;
@@ -1441,8 +1941,8 @@ async function verDetalle(id: string): Promise<void> {
     detalle.value = caso;
     pipelineEtapas.value = etapas;
     lineas.value = casoLineas;
+    await pollDetalleProgreso(id);
     if (isProcessing(caso.estado)) {
-      await pollDetalleProgreso(id);
       detalleProgresoTimer = setInterval(() => pollDetalleProgreso(id), 2000);
     }
   } catch (e) {
@@ -1455,6 +1955,33 @@ async function verDetalle(id: string): Promise<void> {
 
 function isUploadDuplicado(c: CasoDto): boolean {
   return c.estado === CasoEstado.ERROR && (c.documentosCount ?? 0) === 0;
+}
+
+function isUploadFallidoCarga(c: CasoDto): boolean {
+  if (c.estado !== CasoEstado.ERROR || isUploadDuplicado(c)) return false;
+  const obs = c.observaciones ?? "";
+  return obs.includes("Fallo al guardar el archivo") || obs.includes("Fallo al encolar preprocesamiento");
+}
+
+function solicitarConfirmacionCarga(): void {
+  uploadError.value = null;
+  uploadSuccess.value = null;
+  const ref = referenciaCarga.value.trim();
+  if (ref.length < 2) {
+    uploadError.value = "Indicá un nombre de referencia (mínimo 2 caracteres)";
+    return;
+  }
+  if (!selectedFiles.value.length) {
+    uploadError.value = "Seleccioná al menos un archivo";
+    return;
+  }
+  showUpload.value = false;
+  showConfirmCarga.value = true;
+}
+
+async function confirmarEnvioCarga(): Promise<void> {
+  await onUpload();
+  showConfirmCarga.value = false;
 }
 
 async function onUpload(): Promise<void> {
@@ -1477,22 +2004,37 @@ async function onUpload(): Promise<void> {
       remitenteEmail.value || undefined
     );
     const duplicados = res.casos.filter(isUploadDuplicado);
-    const creados = res.casos.filter((c) => !isUploadDuplicado(c));
+    const fallidosCarga = res.casos.filter(isUploadFallidoCarga);
+    const creados = res.casos.filter((c) => !isUploadDuplicado(c) && !isUploadFallidoCarga(c));
 
-    if (duplicados.length && !creados.length) {
+    const partesError: string[] = [];
+    if (duplicados.length) {
+      partesError.push(
+        `${duplicados.length} duplicado(s): ${duplicados.map((c) => c.numero).join(", ")}`
+      );
+    }
+    if (fallidosCarga.length) {
+      partesError.push(
+        fallidosCarga
+          .map((c) => `${c.numero}${c.observaciones ? ` — ${c.observaciones}` : ""}`)
+          .join(" · ")
+      );
+    }
+
+    if (duplicados.length && !creados.length && !fallidosCarga.length) {
       uploadError.value =
         "Este documento ya fue cargado antes. Subí un archivo distinto o abrí el caso original desde la lista.";
     } else {
       if (creados.length) {
         uploadSuccess.value = `${creados.length} caso(s) creado(s): ${creados.map((c) => c.numero).join(", ")}`;
       }
-      if (duplicados.length) {
-        uploadError.value = `${duplicados.length} archivo(s) omitido(s): ya existen en el sistema (${duplicados.map((c) => c.numero).join(", ")}).`;
+      if (partesError.length) {
+        uploadError.value = partesError.join(" · ");
       }
-      selectedFiles.value = [];
-      referenciaCarga.value = "";
-      remitenteEmail.value = "";
-      if (creados.length) {
+      if (creados.length && !fallidosCarga.length) {
+        selectedFiles.value = [];
+        referenciaCarga.value = "";
+        remitenteEmail.value = "";
         window.setTimeout(() => {
           showUpload.value = false;
           uploadSuccess.value = null;
@@ -1500,7 +2042,7 @@ async function onUpload(): Promise<void> {
       }
     }
     await load();
-    for (const c of res.casos.filter((x) => !isUploadDuplicado(x))) {
+    for (const c of creados) {
       marcarProcesando(c.id, progresoMap.value[c.id] ?? 5);
     }
     void refreshProgresoLista();
@@ -1520,7 +2062,7 @@ onMounted(() => {
 onUnmounted(() => {
   isMounted = false;
   if (progresoTimer) clearInterval(progresoTimer);
-  stopDetalleProgreso();
+  stopDetalleProgreso(true);
   stopProcesamientoPoll();
 });
 </script>
@@ -1559,7 +2101,7 @@ onUnmounted(() => {
 
 .filters {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
@@ -1571,6 +2113,25 @@ onUnmounted(() => {
 
 .search-global {
   min-width: 240px;
+}
+
+.filters__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.filters__check input {
+  flex-shrink: 0;
+  margin: 0;
+  cursor: pointer;
 }
 
 .search-results {
@@ -1644,10 +2205,28 @@ onUnmounted(() => {
   text-transform: uppercase;
   font-weight: 600;
   color: var(--ink-faint);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.th-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.06rem;
+  line-height: 1.12;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .casos-table .td-referencia {
   max-width: 10rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .td-numero__line {
@@ -1712,6 +2291,54 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+.th-cuad,
+.td-cuad {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.td-cuad__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.35rem;
+  margin: -0.15rem -0.35rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.td-cuad__btn:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+.td-cuad__btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.td-cuad__pct {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.td-cuad__pct--ok {
+  color: var(--ok, #22c55e);
+}
+
+.td-cuad__pct--fail {
+  color: var(--bad, #ef4444);
+}
+
+.td-cuad__na {
+  color: var(--ink-faint, #94a3b8);
+  font-size: 0.75rem;
+}
+
 .td-confianza__pct {
   font-size: 0.5625rem;
   font-variant-numeric: tabular-nums;
@@ -1728,15 +2355,100 @@ onUnmounted(() => {
 .td-referencia {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.th-actions,
+.td-actions {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  max-width: 11.5rem;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.td-actions {
+  padding-left: 0.25rem !important;
+  padding-right: 0.35rem !important;
 }
 
 .actions-cell {
   display: flex;
-  gap: 0.1rem;
+  gap: 0.4rem;
   flex-wrap: nowrap;
-  align-items: flex-start;
-  max-width: none;
-  white-space: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 1.1rem;
+}
+
+.action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1;
+  border-radius: 3px;
+  appearance: none;
+}
+
+.action-icon:hover {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--brand);
+}
+
+.action-icon:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
+.action-icon i {
+  font-size: 0.82rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.action-icon--brand {
+  color: var(--brand);
+}
+
+.action-icon--brand:hover {
+  color: var(--brand-ink);
+}
+
+.action-icon--warn {
+  color: var(--warn);
+}
+
+.action-icon--warn:hover {
+  color: color-mix(in srgb, var(--warn) 80%, var(--ink));
+}
+
+.action-icon--danger {
+  color: var(--bad);
+}
+
+.action-icon--danger:hover {
+  color: color-mix(in srgb, var(--bad) 85%, var(--ink));
+}
+
+.action-icon--muted {
+  color: color-mix(in srgb, var(--ink-soft) 88%, transparent);
+}
+
+.action-icon--muted:hover {
+  color: var(--ink);
 }
 
 .btn-action-stack {
@@ -1753,24 +2465,8 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
-.actions-cell .btn-action-stack {
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.12rem;
-  padding: 0.26rem 0.2rem 0.22rem;
-  min-width: 2.35rem;
-  max-width: 2.85rem;
-  border-radius: 7px;
-}
-
 .btn-action-stack i {
   font-size: 0.8rem;
-  line-height: 1;
-}
-
-.actions-cell .btn-action-stack i {
-  font-size: 0.75rem;
   line-height: 1;
 }
 
@@ -1786,44 +2482,72 @@ onUnmounted(() => {
   opacity: 0.92;
 }
 
-.actions-cell .btn-action-stack span {
-  font-size: 0.5rem;
-  line-height: 1.05;
-  text-align: center;
-  white-space: nowrap;
-  word-break: normal;
-  hyphens: none;
-  max-width: 2.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .btn-action-stack.btn-primary span {
   opacity: 1;
 }
 
 .btn-action-stack--header {
-  min-width: 3rem;
-  max-width: 4.5rem;
-  padding: 0.35rem 0.45rem 0.28rem;
+  min-width: 4.5rem;
+  max-width: 10.5rem;
+  padding: 0.5rem 0.7rem 0.45rem;
+  gap: 0.28rem;
 }
 
 .btn-action-stack--header i {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 
 .btn-action-stack--header span {
-  font-size: 0.625rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
 }
 
-.btn-reinicio-grid {
+.reinicio-modal__scope {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+  background: color-mix(in srgb, var(--brand) 6%, var(--panel));
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.reinicio-modal__scope i {
+  margin-top: 0.15rem;
+  color: var(--brand);
+}
+
+.reinicio-modal__scope--warn {
   border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+}
+
+.reinicio-modal__scope--warn i {
   color: var(--warn);
 }
 
-.btn-reinicio-grid:hover:not(:disabled) {
-  background: var(--warn-bg);
-  border-color: var(--warn);
+.reinicio-modal__ack {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.75rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.reinicio-modal__ack input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }
 
 .reinicio-modal__lead {
@@ -1831,6 +2555,34 @@ onUnmounted(() => {
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--ink-soft);
+}
+
+.reinicio-modal__modo {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.reinicio-modal__modo .label {
+  margin-bottom: 0.45rem;
+}
+
+.reinicio-modal__radio {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.35rem 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.reinicio-modal__radio input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }
 
 .reinicio-modal__list {
@@ -1895,14 +2647,18 @@ onUnmounted(() => {
 
 .th-estado,
 .td-estado {
-  min-width: 6.5rem;
-  max-width: 8rem;
-  padding-left: 0.35rem !important;
-  padding-right: 0.35rem !important;
+  width: 6.75rem;
+  min-width: 6.75rem;
+  max-width: 6.75rem;
+  padding-left: 0.3rem !important;
+  padding-right: 0.3rem !important;
+  box-sizing: border-box;
 }
 
 .th-estado {
   font-size: 0.65rem !important;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .td-progreso {
@@ -1996,20 +2752,118 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--brand) 4%, transparent);
 }
 
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  line-height: 1.2;
+  text-align: inherit;
+}
+
+.th-sort:hover {
+  color: var(--brand);
+}
+
+.th-sort:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.th-sort--stack {
+  flex-direction: column;
+  gap: 0.06rem;
+}
+
+.th-sort__icon--idle {
+  opacity: 0.35;
+  font-size: 0.55rem;
+}
+
+.th-sort i:not(.th-sort__icon--idle) {
+  font-size: 0.55rem;
+  color: var(--brand);
+}
+
+.th-proc-estado,
+.td-proc-estado {
+  width: 4.35rem;
+  min-width: 4.35rem;
+  max-width: 4.35rem;
+  text-align: center;
+  vertical-align: middle;
+  padding-left: 0.2rem !important;
+  padding-right: 0.2rem !important;
+  box-sizing: border-box;
+}
+
+.th-proc-estado {
+  white-space: normal;
+  line-height: 1.12;
+  font-size: 0.58rem;
+  vertical-align: bottom;
+}
+
+.th-proc-estado .th-stack {
+  font-size: 0.58rem;
+}
+
+.td-proc-estado__na {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.badge--proc-estado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 0.55rem;
+  padding: 0.08rem 0.22rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.badge--proc-estado--curso {
+  background: color-mix(in srgb, var(--brand) 12%, var(--panel));
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+.badge--proc-estado--detenido {
+  background: color-mix(in srgb, var(--warn) 16%, var(--panel));
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+}
+
 .casos-table .badge {
   font-size: 0.625rem;
   padding: 0.1rem 0.35rem;
 }
 
 .casos-table .badge.badge--estado {
-  font-size: 0.625rem;
-  padding: 0.12rem 0.4rem;
-  max-width: 7.5rem;
+  font-size: 0.6rem;
+  padding: 0.1rem 0.3rem;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
   display: inline-block;
+  box-sizing: border-box;
 }
 
 .badge.processing {
@@ -2021,35 +2875,6 @@ onUnmounted(() => {
 
 .badge--icon {
   padding: 0.1rem 0.25rem;
-}
-
-.btn-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.btn-refresh__label {
-  font-size: 0.875rem;
-}
-
-.btn-refresh--icon {
-  padding: 0.45rem 0.55rem;
-}
-
-.btn-refresh--icon .fa-arrows-rotate {
-  font-size: 1rem;
-}
-
-.btn-error-outline {
-  color: var(--bad);
-  border: 1px solid color-mix(in srgb, var(--bad) 45%, var(--line));
-  background: color-mix(in srgb, var(--bad) 6%, var(--panel));
-}
-
-.btn-error-outline:hover {
-  background: color-mix(in srgb, var(--bad) 12%, var(--panel));
-  border-color: var(--bad);
 }
 
 .error-modal-loading {

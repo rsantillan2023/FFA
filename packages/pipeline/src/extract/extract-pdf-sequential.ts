@@ -24,6 +24,16 @@ function totalLineas(partials: ExtractResult[]): number {
   return partials.reduce((sum, p) => sum + (p.lineas?.length ?? 0), 0);
 }
 
+function canonicalScore(clasificadas: PaginaClasificada[] | undefined, pageNum: number): number {
+  return clasificadas?.find((c) => c.pagina === pageNum)?.score ?? 0;
+}
+
+function isStrongCanonicalPage(clasificadas: PaginaClasificada[] | undefined, pageNum: number): boolean {
+  const sec = sectionForPage(clasificadas, pageNum);
+  if (sec == null || !CANONICAL_SECTIONS.has(sec)) return false;
+  return canonicalScore(clasificadas, pageNum) >= 40;
+}
+
 function shouldAbortEarly(
   partials: ExtractResult[],
   processed: PdfPageImage[],
@@ -38,6 +48,8 @@ function shouldAbortEarly(
   });
 
   if (triedCanonical) {
+    const remainingHasStrongCanonical = remaining.some((pg) => isStrongCanonicalPage(clasificadas, pg.pageNum));
+    if (remainingHasStrongCanonical) return null;
     return "Se requiere al menos una línea extraída (páginas contables sin datos numéricos)";
   }
 

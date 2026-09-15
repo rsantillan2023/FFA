@@ -10,6 +10,27 @@ const ESCALA_MULTIPLIER: Record<string, number> = {
   indeterminada: 1,
 };
 
+/** Resuelve multiplicador: M$ / miles aplica ×1000 una sola vez; evita doble escala si ya vienen en pesos. */
+function resolverMultiplicadorEscala(
+  metadata: ExtractResult["metadata"],
+  montos: number[],
+  escalaDeclarada: NonNullable<ExtractResult["metadata"]["escala"]>
+): number {
+  const fromFactor =
+    metadata.escalaFactor != null && metadata.escalaFactor > 0 ? metadata.escalaFactor : undefined;
+  const fromEscala = ESCALA_MULTIPLIER[escalaDeclarada] ?? 1;
+  let multiplier = fromFactor ?? fromEscala;
+
+  const maxAbs = Math.max(0, ...montos.map((m) => Math.abs(Number(m) || 0)));
+  const escalaMiles = escalaDeclarada === "miles" || metadata.escalaFactor === 1_000;
+  // Cifras M$ típicas: 10^9–10^11; si ya están en pesos completos (>5×10^11), no multiplicar otra vez
+  if (escalaMiles && maxAbs > 500_000_000_000) {
+    multiplier = 1;
+  }
+
+  return multiplier;
+}
+
 export function normalizeExtractResult(
   input: ExtractResult,
   opts?: { normalizeLog?: NormalizeLogEntry[]; añoVigente?: number }
@@ -17,7 +38,7 @@ export function normalizeExtractResult(
   const log = opts?.normalizeLog ?? [];
   const montos = input.lineas.map((l) => l.montoOriginal);
   const escala = evaluarEscala(input.metadata, montos, log);
-  const multiplier = ESCALA_MULTIPLIER[escala] ?? 1;
+  const multiplier = resolverMultiplicadorEscala(input.metadata, montos, escala);
   const periodo = normalizarPeriodo(input.metadata.periodo);
 
   if (esEjercicioDesactualizado(periodo?.ejercicio, opts?.añoVigente)) {

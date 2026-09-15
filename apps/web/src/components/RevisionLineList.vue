@@ -16,6 +16,7 @@
     <ul class="lines-grid__body" role="rowgroup">
       <li
         v-for="l in lineas"
+        :id="`revision-linea-${l.id}`"
         :key="l.id"
         class="lines-grid__row"
         role="row"
@@ -23,6 +24,10 @@
           'lines-grid__row--pending': esPendiente(l),
           'lines-grid__row--no-rubro': esPendiente(l) && !rubroEnDraft(l) && !lineaTieneRubro(l),
           'lines-grid__row--ok': !esPendiente(l),
+          'lines-grid__row--ia-curso': l.id === iaLineaEnCursoId,
+          'lines-grid__row--ia-reciente': iaLineasRecientesIds?.includes(l.id),
+          'lines-grid__row--ruido': esLineaProbableRuidoRevision(l),
+          'lines-grid__row--duplicado': esLineaDuplicada(l),
         }"
       >
         <span class="lines-grid__cell lines-grid__cell--icon" role="cell">
@@ -33,6 +38,15 @@
 
         <div class="lines-grid__cell lines-grid__cell--concepto" role="cell">
           <span class="line-concepto__title" :title="l.denominacionOriginal">{{ l.denominacionOriginal }}</span>
+          <span v-if="esLineaProbableRuidoRevision(l)" class="line-concepto__ruido-tag">
+            Posible ruido OCR
+          </span>
+          <span v-else-if="duplicadosOcultos(l) > 0" class="line-concepto__dup-tag">
+            +{{ duplicadosOcultos(l) }} duplicada(s) oculta(s)
+          </span>
+          <span v-else-if="esLineaDuplicada(l)" class="line-concepto__dup-tag">
+            Duplicado
+          </span>
           <div v-if="mostrarEditorInline(l)" class="line-concepto__sugerencias">
             <button
               v-for="c in l.candidatosAsistidos?.slice(0, 3) ?? []"
@@ -45,34 +59,6 @@
               {{ c.codigo }} {{ c.score }}%
             </button>
           </div>
-          <div
-            v-if="mostrarEditorInline(l) && iaSugerencias[l.id]"
-            class="line-concepto__ia-panel"
-          >
-            <div class="line-concepto__ia-head">
-              <strong>{{ iaSugerencias[l.id]!.rubroCodigo }} — {{ iaSugerencias[l.id]!.rubroNombre }}</strong>
-              <span class="line-concepto__ia-conf">{{ iaSugerencias[l.id]!.confianza }}%</span>
-            </div>
-            <p class="line-concepto__ia-razon">{{ iaSugerencias[l.id]!.razonamiento }}</p>
-            <div class="line-concepto__ia-actions">
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                :disabled="Boolean(iaAplicando[l.id])"
-                @click="aplicarSugerenciaIa(l)"
-              >
-                {{ iaAplicando[l.id] ? "Aplicando…" : "Aplicar" }}
-              </button>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                @click="cerrarSugerenciaIa(l.id)"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-          <p v-if="iaErrores[l.id]" class="line-concepto__ia-error">{{ iaErrores[l.id] }}</p>
         </div>
 
         <div class="lines-grid__cell lines-grid__cell--pag" role="cell">
@@ -84,7 +70,18 @@
         </div>
 
         <div class="lines-grid__cell lines-grid__cell--estado" role="cell">
-          <span v-if="showEstado" class="line-estado__badge" :class="estadoLineaClass(l)">
+          <button
+            v-if="showEstado && puedeAbrirDetalleIa(l)"
+            type="button"
+            class="line-estado__badge line-estado__badge--ia-btn"
+            :class="estadoLineaClass(l)"
+            :title="`Ver clasificación IA — ${l.denominacionOriginal}`"
+            :aria-label="`${estadoLineaLabel(l)} — ver detalle de clasificación IA`"
+            @click.stop="abrirDetalleIa(l)"
+          >
+            {{ estadoLineaLabel(l) }}
+          </button>
+          <span v-else-if="showEstado" class="line-estado__badge" :class="estadoLineaClass(l)">
             {{ estadoLineaLabel(l) }}
           </span>
           <span v-else-if="esPendiente(l)" class="line-estado__badge line-estado__badge--pending">Pendiente</span>
@@ -113,6 +110,7 @@
         <div class="lines-grid__cell lines-grid__cell--rubro" role="cell">
           <select
             v-if="mostrarEditorInline(l)"
+            :key="`${l.id}-${l.rubroInstitucionalId ?? ''}-${l.clasificacionIaAt ?? ''}`"
             v-model="draft(l).rubroId"
             class="lines-grid__select"
             :class="{ 'lines-grid__select--error': !rubroEnDraft(l) }"
@@ -121,7 +119,7 @@
             @change="onRubroChange(l)"
           >
             <option value="">— Elegir rubro —</option>
-            <option v-for="r in rubros" :key="r.id" :value="r.id">
+            <option v-for="r in rubrosCombo" :key="r.id" :value="r.id">
               {{ r.codigo }} — {{ r.nombre }}
             </option>
           </select>
@@ -140,51 +138,52 @@
           >
             <i class="fas fa-file-alt" aria-hidden="true"></i>
           </button>
-          <button
-            v-if="mostrarEditorInline(l) && casoId"
-            class="btn btn-sm btn-icon line-action-ia"
-            type="button"
-            :class="{ 'line-action-ia--active': Boolean(iaSugerencias[l.id]) }"
-            :disabled="Boolean(iaLoading[l.id])"
-            :title="iaLoading[l.id] ? 'Consultando IA…' : 'Sugerir rubro con IA'"
-            @click.stop="solicitarSugerenciaIa(l)"
-          >
-            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-          </button>
           <template v-if="mostrarEditorInline(l)">
             <button
+              v-if="esPendiente(l)"
+              class="btn btn-primary btn-sm btn-icon line-action-confirm"
+              type="button"
+              :disabled="!puedeConfirmar(l)"
+              :title="confirmarTitle(l)"
+              @click.stop="emitConfirmar(l)"
+            >
+              <i class="fas fa-check" aria-hidden="true"></i>
+            </button>
+            <button
+              v-else-if="draftDirty(l)"
               class="btn btn-primary btn-sm btn-icon"
               type="button"
-              :disabled="!rubroEnDraft(l) || !draftDirty(l)"
+              :disabled="!rubroEnDraft(l)"
               title="Guardar cambios"
               @click.stop="emitGuardar(l)"
             >
               <i class="fas fa-save" aria-hidden="true"></i>
             </button>
-            <button
-              v-if="esPendiente(l)"
-              class="btn btn-sm btn-icon line-action-approve"
-              type="button"
-              :disabled="!puedeAprobar(l)"
-              :title="aprobarTitle(l)"
-              @click.stop="emitAprobar(l)"
-            >
-              <i class="fas fa-check" aria-hidden="true"></i>
-            </button>
           </template>
+          <button
+            v-if="allowDelete"
+            class="btn btn-ghost btn-sm btn-icon lines-grid__delete"
+            type="button"
+            title="Eliminar línea"
+            @click.stop="emit('eliminar', l)"
+          >
+            <i class="fas fa-trash-can" aria-hidden="true"></i>
+          </button>
         </div>
       </li>
     </ul>
+
+    <ClasificacionIaLineaModal v-model="iaDetalleModalOpen" :linea="iaDetalleLinea" />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { LineaContableDto, RubroOptionDto, SugerenciaClasificacionIaDto } from "@ffa/shared";
+import type { LineaContableDto, RubroOptionDto } from "@ffa/shared";
 import { computed, inject, onUnmounted, reactive, ref, watch } from "vue";
-import { api } from "../api/client";
-import type { LineaDraftOverride } from "../utils/balanceTotales";
-import { apiErrorMessage } from "../utils/apiError";
+import { rubroDeLinea, type LineaDraftOverride } from "../utils/balanceTotales";
 import { formatMonto, parseMontoInput } from "../utils/formatMonto";
+import { esLineaProbableRuidoRevision } from "../utils/revisionResumen";
+import ClasificacionIaLineaModal from "./ClasificacionIaLineaModal.vue";
 
 type RegisterLineDraft = (lineaId: string, override: LineaDraftOverride | null) => void;
 
@@ -204,9 +203,20 @@ const props = defineProps<{
   showEstado?: boolean;
   /** Código ISO 4217 del expediente (p. ej. ARS). */
   moneda?: string;
+  iaLineaEnCursoId?: string;
+  iaLineasRecientesIds?: string[];
+  /** Permite eliminar filas erróneas (ruido OCR, duplicados). */
+  allowDelete?: boolean;
+  /** IDs de líneas que pertenecen a un grupo duplicado (mismo concepto y monto). */
+  idsDuplicados?: string[];
+  /** Filas repetidas colapsadas en la fila visible (id → cantidad oculta). */
+  duplicadosOcultosPorId?: Record<string, number>;
 }>();
 
 const monedaCodigo = computed(() => props.moneda?.trim().toUpperCase() ?? "");
+
+const iaLineaEnCursoId = computed(() => props.iaLineaEnCursoId);
+const iaLineasRecientesIds = computed(() => props.iaLineasRecientesIds ?? []);
 
 function formatMontoConMoneda(n: number | null | undefined): string {
   const monto = formatMonto(n);
@@ -214,31 +224,86 @@ function formatMontoConMoneda(n: number | null | undefined): string {
   return monedaCodigo.value ? `${monedaCodigo.value} ${monto}` : monto;
 }
 
+const rubrosLista = computed(() => props.rubros ?? []);
+
+const rubrosCombo = computed(() =>
+  rubrosLista.value.filter((r) => r.asignable !== false)
+);
+
+const allowDelete = computed(() => props.allowDelete ?? false);
+const idsDuplicadosSet = computed(() => new Set(props.idsDuplicados ?? []));
+
+function esLineaDuplicada(l: LineaContableDto): boolean {
+  return idsDuplicadosSet.value.has(l.id);
+}
+
+function duplicadosOcultos(l: LineaContableDto): number {
+  return props.duplicadosOcultosPorId?.[l.id] ?? 0;
+}
+
 const emit = defineEmits<{
   guardar: [lineaId: string, data: Record<string, unknown>];
   aprobar: [lineaId: string];
   verDocumento: [linea: LineaContableDto];
+  eliminar: [linea: LineaContableDto];
   iaAplicada: [];
 }>();
 
 const drafts = reactive<Record<string, LineDraft>>({});
+const draftServerKey = reactive<Record<string, string>>({});
 const montoEditando = reactive<Record<string, string>>({});
 const montoFocused = ref<Set<string>>(new Set());
-const iaLoading = reactive<Record<string, boolean>>({});
-const iaSugerencias = reactive<Record<string, SugerenciaClasificacionIaDto | undefined>>({});
-const iaErrores = reactive<Record<string, string>>({});
+const iaDetalleModalOpen = ref(false);
+const iaDetalleLinea = ref<LineaContableDto | null>(null);
 const registerLineDraft = inject<RegisterLineDraft | null>("revisionDraftRegister", null);
+
+function lineServerKey(l: LineaContableDto): string {
+  return [
+    l.rubroInstitucionalId ?? "",
+    l.clasificacionIaAt ?? "",
+    l.montoNormalizado ?? l.montoOriginal,
+    l.denominacionOriginal,
+  ].join("|");
+}
 
 function esPendiente(l: LineaContableDto): boolean {
   return l.requiereRevision && l.estado !== "aprobada";
 }
 
+function lineaYaProcesadaPorIa(l: LineaContableDto): boolean {
+  return (
+    Boolean(l.clasificacionIaAt) ||
+    l.origenClasificacion === "ia_revision" ||
+    l.origenClasificacion === "ia_clasificacion" ||
+    l.origenClasificacion === "ia_pre_revision"
+  );
+}
+
+function lineaOkIa(l: LineaContableDto): boolean {
+  if (esPendiente(l)) return false;
+  return (
+    l.origenClasificacion === "ia_clasificacion" ||
+    l.origenClasificacion === "ia_pre_revision" ||
+    l.origenClasificacion === "ia_revision"
+  );
+}
+
 function rubroAsignado(l: LineaContableDto): boolean {
-  return Boolean(l.rubroInstitucionalId || l.rubroCodigo);
+  return Boolean(rubroDeLinea(l, rubrosLista.value));
+}
+
+function puedeAbrirDetalleIa(l: LineaContableDto): boolean {
+  if (!lineaYaProcesadaPorIa(l)) return false;
+  return Boolean(l.clasificacionIaRazonamiento) || rubroAsignado(l);
+}
+
+function abrirDetalleIa(l: LineaContableDto): void {
+  iaDetalleLinea.value = l;
+  iaDetalleModalOpen.value = true;
 }
 
 function estadoLineaLabel(l: LineaContableDto): string {
-  if (!esPendiente(l)) return "OK";
+  if (!esPendiente(l)) return lineaOkIa(l) ? "OK IA" : "OK";
   if (!rubroAsignado(l)) return "Falta info";
   return "Pendiente aprobar";
 }
@@ -255,10 +320,13 @@ function mostrarEditorInline(l: LineaContableDto): boolean {
 }
 
 function initDraft(l: LineaContableDto): LineDraft {
+  const resuelto = rubroDeLinea(l, rubrosLista.value);
+  const rubroId =
+    resuelto && resuelto.asignable !== false ? resuelto.id : l.rubroInstitucionalId ?? "";
   return {
     denominacion: l.denominacionOriginal,
     monto: l.montoNormalizado ?? l.montoOriginal,
-    rubroId: l.rubroInstitucionalId ?? "",
+    rubroId,
   };
 }
 
@@ -276,58 +344,48 @@ function setRubro(lineaId: string, rubroId: string): void {
   pushDraftOverride(linea);
 }
 
-async function solicitarSugerenciaIa(l: LineaContableDto): Promise<void> {
-  if (!props.casoId || iaLoading[l.id]) return;
-  iaLoading[l.id] = true;
-  delete iaErrores[l.id];
-  delete iaSugerencias[l.id];
-  try {
-    iaSugerencias[l.id] = await api.sugerirClasificacionIa(props.casoId, l.id);
-  } catch (e) {
-    iaErrores[l.id] = apiErrorMessage(e, "No se pudo obtener sugerencia IA");
-  } finally {
-    iaLoading[l.id] = false;
-  }
-}
-
-const iaAplicando = reactive<Record<string, boolean>>({});
-
-async function aplicarSugerenciaIa(l: LineaContableDto): Promise<void> {
-  if (!props.casoId || iaAplicando[l.id]) return;
-  iaAplicando[l.id] = true;
-  delete iaErrores[l.id];
-  try {
-    await api.aplicarClasificacionIa(props.casoId, l.id);
-    cerrarSugerenciaIa(l.id);
-    emit("iaAplicada");
-  } catch (e) {
-    iaErrores[l.id] = apiErrorMessage(e, "No se pudo aplicar la sugerencia IA");
-  } finally {
-    iaAplicando[l.id] = false;
-  }
-}
-
-function cerrarSugerenciaIa(lineaId: string): void {
-  delete iaSugerencias[lineaId];
-  delete iaErrores[lineaId];
-}
-
 watch(
   () => props.lineas,
   (list) => {
     for (const l of list) {
+      const key = lineServerKey(l);
       const prev = drafts[l.id];
+      const keyChanged = draftServerKey[l.id] !== key;
+
       if (!prev) {
         drafts[l.id] = initDraft(l);
+        draftServerKey[l.id] = key;
         continue;
       }
-      if (!draftDirty(l)) {
+
+      if (!keyChanged) continue;
+
+      const editedLocally = draftDirty(l);
+      const actualizadoPorIa = Boolean(l.clasificacionIaAt);
+
+      if (!editedLocally || actualizadoPorIa) {
         drafts[l.id] = initDraft(l);
         registerLineDraft?.(l.id, null);
       }
+
+      draftServerKey[l.id] = key;
     }
   },
   { deep: true, immediate: true }
+);
+
+watch(
+  () => props.iaLineasRecientesIds,
+  (ids) => {
+    if (!ids?.length) return;
+    for (const id of ids) {
+      const l = props.lineas.find((linea) => linea.id === id);
+      if (!l) continue;
+      drafts[l.id] = initDraft(l);
+      draftServerKey[l.id] = lineServerKey(l);
+      registerLineDraft?.(l.id, null);
+    }
+  }
 );
 
 const montoOverrideTimers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -413,12 +471,12 @@ function draftDirty(l: LineaContableDto): boolean {
   return (
     d.denominacion !== l.denominacionOriginal ||
     d.monto !== (l.montoNormalizado ?? l.montoOriginal) ||
-    d.rubroId !== (l.rubroInstitucionalId ?? "")
+    d.rubroId !== (rubroDeLinea(l, rubrosLista.value)?.id ?? l.rubroInstitucionalId ?? "")
   );
 }
 
 function lineaTieneRubro(l: LineaContableDto): boolean {
-  return Boolean(l.rubroInstitucionalId || l.rubroCodigo);
+  return Boolean(rubroDeLinea(l, rubrosLista.value));
 }
 
 function confianzaDisplay(l: LineaContableDto): string {
@@ -426,16 +484,16 @@ function confianzaDisplay(l: LineaContableDto): string {
   return `${l.confianzaClasificacion}%`;
 }
 
-function puedeAprobar(l: LineaContableDto): boolean {
+function puedeConfirmar(l: LineaContableDto): boolean {
   if (draftDirty(l)) return rubroEnDraft(l);
   return lineaTieneRubro(l);
 }
 
-function aprobarTitle(l: LineaContableDto): string {
-  if (draftDirty(l) && !rubroEnDraft(l)) return "Elegí un rubro antes de guardar";
-  if (draftDirty(l)) return "Guardar cambios y aprobar";
-  if (!lineaTieneRubro(l)) return "Asigná un rubro antes de aprobar";
-  return "Aprobar clasificación";
+function confirmarTitle(l: LineaContableDto): string {
+  if (draftDirty(l) && !rubroEnDraft(l)) return "Elegí un rubro antes de confirmar";
+  if (draftDirty(l)) return "Confirmar cambios en la línea";
+  if (!lineaTieneRubro(l)) return "Asigná un rubro antes de confirmar";
+  return "Confirmar línea";
 }
 
 function lineStatusIcon(l: LineaContableDto): string {
@@ -458,7 +516,7 @@ function emitGuardar(l: LineaContableDto): void {
   emit("guardar", l.id, buildPayload(l));
 }
 
-function emitAprobar(l: LineaContableDto): void {
+function emitConfirmar(l: LineaContableDto): void {
   if (draftDirty(l)) {
     if (!rubroEnDraft(l)) return;
     emit("guardar", l.id, buildPayload(l));
@@ -538,6 +596,79 @@ function emitAprobar(l: LineaContableDto): void {
 
 .lines-grid__row--ok {
   border-left-color: var(--ok);
+}
+
+.lines-grid__row--ia-curso {
+  border-left-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
+  animation: line-ia-pulse 1.2s ease-in-out infinite;
+}
+
+.lines-grid__row--ia-reciente:not(.lines-grid__row--ia-curso) {
+  animation: line-ia-flash 1.4s ease-out 1;
+}
+
+@keyframes line-ia-pulse {
+  0%,
+  100% {
+    background: color-mix(in srgb, var(--brand) 6%, var(--panel));
+  }
+  50% {
+    background: color-mix(in srgb, var(--brand) 14%, var(--panel));
+  }
+}
+
+@keyframes line-ia-flash {
+  0% {
+    background: color-mix(in srgb, var(--ok) 22%, var(--panel));
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.lines-grid__row--ruido {
+  background: color-mix(in srgb, var(--warn) 6%, var(--panel));
+  border-left: 3px solid color-mix(in srgb, var(--warn) 55%, transparent);
+}
+
+.lines-grid__row--duplicado {
+  background: color-mix(in srgb, #6366f1 6%, var(--panel));
+  border-left: 3px solid color-mix(in srgb, #6366f1 45%, transparent);
+}
+
+.line-concepto__dup-tag {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: color-mix(in srgb, #6366f1 12%, var(--panel));
+  color: #4338ca;
+}
+
+.line-concepto__ruido-tag {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+}
+
+.lines-grid__delete {
+  color: var(--bad);
+}
+
+.lines-grid__delete:hover {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 10%, var(--panel));
 }
 
 .lines-grid__row--pending .line-status-icon {
@@ -624,6 +755,21 @@ function emitAprobar(l: LineaContableDto): void {
   color: var(--bad);
 }
 
+.line-estado__badge--ia-btn {
+  border: none;
+  padding: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.line-estado__badge--ia-btn:hover {
+  filter: brightness(0.92);
+}
+
 .lines-grid__cell--concepto {
   min-width: 0;
   align-self: center;
@@ -687,49 +833,6 @@ function emitAprobar(l: LineaContableDto): void {
 .line-action-ia:disabled {
   opacity: 0.65;
   cursor: wait;
-}
-
-.line-concepto__ia-panel {
-  margin-top: 0.35rem;
-  padding: 0.35rem 0.45rem;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--line));
-  background: color-mix(in srgb, var(--brand) 6%, var(--panel));
-}
-
-.line-concepto__ia-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem;
-  font-size: 0.68rem;
-  color: var(--ink);
-}
-
-.line-concepto__ia-conf {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--brand);
-  white-space: nowrap;
-}
-
-.line-concepto__ia-razon {
-  margin: 0.25rem 0 0;
-  font-size: 0.65rem;
-  line-height: 1.35;
-  color: var(--ink-soft);
-}
-
-.line-concepto__ia-actions {
-  display: flex;
-  gap: 0.25rem;
-  margin-top: 0.3rem;
-}
-
-.line-concepto__ia-error {
-  margin: 0.25rem 0 0;
-  font-size: 0.62rem;
-  color: var(--bad);
 }
 
 .lines-grid__cell--monto,

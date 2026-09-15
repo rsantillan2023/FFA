@@ -7,6 +7,9 @@ import type {
   ReglaClasificacionRef,
   RubroRef,
 } from "../types.js";
+import { sugerirRubroCodigoBalance } from "../balance/reconcile-balance.js";
+import { clasificarLineaSubtotalBalance, esLineaSubtotalBalance } from "../balance/subtotal-rubro.js";
+import { filtrarRubrosAsignables } from "../plan/rubros-asignables.js";
 import { similitudTexto } from "../utils/similarity.js";
 import { contienePatron, normalizarDenominacion } from "../utils/text.js";
 export interface ClassifyInput {
@@ -194,29 +197,93 @@ export function resolveAsistida(
   };
 }
 
-export function classifyLines(input: ClassifyInput): ClassifiedLine[] {
+export interface ClassifyLineContext {
+  rubrosById: Map<string, RubroRef>;
+  rubrosImputacion: RubroRef[];
+  criterios: CriterioContribuyenteRef[];
+  reglas: ReglaClasificacionRef[];
+  umbralConfianza: number;
+}
+
+export function buildClassifyLineContext(input: ClassifyInput): ClassifyLineContext {
   const rubrosById = new Map(input.rubros.map((r) => [r.id, r]));
+  const rubrosAsignables = filtrarRubrosAsignables(input.rubros);
+  const rubrosImputacion = rubrosAsignables.length ? rubrosAsignables : input.rubros;
+  return {
+    rubrosById,
+    rubrosImputacion,
+    criterios: input.criterios ?? [],
+    reglas: input.reglas,
+    umbralConfianza: input.umbralConfianza,
+  };
+}
 
-  const criterios = input.criterios ?? [];
+function matchBalanceRubroDeterministic(
+  linea: NormalizedLine,
+  ctx: ClassifyLineContext
+): ClassifiedLine | null {
+  const codigo = sugerirRubroCodigoBalance(linea.denominacionOriginal);
+  if (!codigo) return null;
+  const rubro = ctx.rubrosImputacion.find((r) => r.codigo === codigo);
+  if (!rubro) return null;
+  return detectRetiroEnActivo(
+    {
+      ...linea,
+      rubroInstitucionalId: rubro.id,
+      rubroCodigo: rubro.codigo,
+      confianzaClasificacion: 88,
+      requiereRevision: false,
+      origenClasificacion: "regla",
+    },
+    ctx.rubrosById
+  );
+}
 
+/** Criterio aprobado del contribuyente o regla activa — sin semántica ni IA. */
+export function tryClassifyDeterministic(
+  linea: NormalizedLine,
+  ctx: ClassifyLineContext
+): ClassifiedLine | null {
+  const byCriterio = matchCriterioContribuyente(
+    linea,
+    ctx.criterios,
+    ctx.rubrosById,
+    ctx.umbralConfianza
+  );
+  if (byCriterio) return byCriterio;
+
+  const byRegla = matchRegla(linea, ctx.reglas, ctx.rubrosById, ctx.umbralConfianza);
+  if (byRegla) {
+    byRegla.requiereRevision = byRegla.confianzaClasificacion < ctx.umbralConfianza;
+    return detectRetiroEnActivo(byRegla, ctx.rubrosById);
+  }
+
+  const byBalance = matchBalanceRubroDeterministic(linea, ctx);
+  if (byBalance) return byBalance;
+
+  return null;
+}
+
+/** Fallback heurístico (similitud de texto) cuando la IA no está disponible o falla. */
+export function classifyLineSemantico(
+  linea: NormalizedLine,
+  ctx: ClassifyLineContext
+): ClassifiedLine {
+  return detectRetiroEnActivo(
+    matchSemantico(linea, ctx.rubrosImputacion, ctx.umbralConfianza),
+    ctx.rubrosById
+  );
+}
+
+export function classifyLines(input: ClassifyInput): ClassifiedLine[] {
+  const ctx = buildClassifyLineContext(input);
   return input.lineas.map((linea) => {
-    const byCriterio = matchCriterioContribuyente(
-      linea,
-      criterios,
-      rubrosById,
-      input.umbralConfianza
-    );
-    if (byCriterio) return byCriterio;
-
-    const byRegla = matchRegla(linea, input.reglas, rubrosById, input.umbralConfianza);
-    if (byRegla) {
-      byRegla.requiereRevision = byRegla.confianzaClasificacion < input.umbralConfianza;
-      return detectRetiroEnActivo(byRegla, rubrosById);
+    if (esLineaSubtotalBalance(linea)) {
+      return clasificarLineaSubtotalBalance(linea, input.rubros);
     }
-    return detectRetiroEnActivo(
-      matchSemantico(linea, input.rubros, input.umbralConfianza),
-      rubrosById
-    );
+    const det = tryClassifyDeterministic(linea, ctx);
+    if (det) return det;
+    return classifyLineSemantico(linea, ctx);
   });
 }
 

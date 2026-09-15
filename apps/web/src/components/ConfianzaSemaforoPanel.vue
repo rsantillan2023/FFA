@@ -28,7 +28,7 @@
                 Confianza {{ pctDisplay }}%
                 <span class="csp-head__badge">{{ nivelLabel }}</span>
               </h3>
-              <p class="csp-head__sub">Promedio de clasificación al plan de cuentas</p>
+              <p class="csp-head__sub">{{ headSubtitle }}</p>
             </div>
           </div>
           <button type="button" class="csp-close" aria-label="Cerrar" @click="emit('close')">
@@ -79,6 +79,8 @@
             </div>
           </section>
 
+          <ProvenanceFallbackBanner v-if="resumen.provenance" :provenance="resumen.provenance" />
+
           <aside class="csp-insight" :class="`csp-insight--${insightTone}`">
             <i :class="['fas', insightIcon]" aria-hidden="true"></i>
             <div>
@@ -89,10 +91,6 @@
             </div>
           </aside>
 
-          <p v-if="resumen.semaforoValidacion && resumen.semaforoValidacion !== resumen.semaforoClasificacion" class="csp-foot">
-            <i class="fas fa-shield-halved" aria-hidden="true"></i>
-            Validación contable: semáforo {{ resumen.semaforoValidacion }}
-          </p>
         </template>
       </article>
     </div>
@@ -103,10 +101,13 @@
 import {
   confianzaSemaforoLabel,
   semaforoDesdeConfianza,
+  semaforoEfectivo,
   type ConfianzaResumenDto,
+  type SemaforoConfianza,
 } from "@ffa/shared";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { api } from "../api/client";
+import ProvenanceFallbackBanner from "./ProvenanceFallbackBanner.vue";
 import SemaforoIndicator from "./SemaforoIndicator.vue";
 import { apiErrorMessage } from "../utils/apiError";
 
@@ -120,7 +121,10 @@ const props = defineProps<{
   inline?: boolean;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{
+  close: [];
+  updated: [resumen: ConfianzaResumenDto];
+}>();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -132,15 +136,56 @@ const pctDisplay = computed(
   () => resumen.value?.confianzaClasificacion ?? props.confianzaGlobal ?? "—"
 );
 
-const semaforoDisplay = computed(
-  () =>
-    resumen.value?.semaforoClasificacion ??
-    props.semaforo ??
-    semaforoDesdeConfianza(props.confianzaGlobal) ??
-    undefined
+const semaforoClasificacion = computed((): SemaforoConfianza | null | undefined => {
+  if (resumen.value?.semaforoClasificacion) return resumen.value.semaforoClasificacion;
+  return semaforoDesdeConfianza(props.confianzaGlobal) ?? null;
+});
+
+const semaforoValidacion = computed(
+  () => (resumen.value?.semaforoValidacion ?? props.semaforo ?? null) as SemaforoConfianza | null
 );
 
-const nivelLabel = computed(() => confianzaSemaforoLabel(semaforoDisplay.value ?? null));
+/** Mismo criterio que la grilla de fichas. */
+const semaforoDisplay = computed(() => {
+  if (resumen.value?.semaforoEfectivo) return resumen.value.semaforoEfectivo;
+  return semaforoEfectivo(semaforoClasificacion.value, semaforoValidacion.value);
+});
+
+const validacionRestringe = computed(() => {
+  const cls = semaforoClasificacion.value;
+  const val = semaforoValidacion.value;
+  return cls === "verde" && val === "rojo";
+});
+
+const validacionAdvertencia = computed(() => {
+  const cls = semaforoClasificacion.value;
+  const val = semaforoValidacion.value;
+  return !!val && val !== "verde" && cls === "verde" && !validacionRestringe.value;
+});
+
+const nivelLabel = computed(() => {
+  if (validacionRestringe.value) {
+    return semaforoDisplay.value === "amarillo" ? "Revisar" : confianzaSemaforoLabel(semaforoDisplay.value ?? null);
+  }
+  return confianzaSemaforoLabel(semaforoDisplay.value ?? null);
+});
+
+const headSubtitle = computed(() => {
+  const cls = semaforoClasificacion.value;
+  const val = semaforoValidacion.value;
+  const pct = pctDisplay.value;
+  const fallas = resumen.value?.validacionesFallidas;
+  const fallasTxt =
+    fallas != null && fallas > 0 ? ` · ${fallas} validación(es) pendiente(s)` : "";
+
+  if (validacionRestringe.value && cls && val) {
+    return `Clasificación alta (${pct}%). Validación contable en rojo${fallasTxt} — semáforo amarillo hasta revisar cuadratura/controles.`;
+  }
+  if (validacionAdvertencia.value && val) {
+    return `Clasificación alta (${pct}%). Validación contable: ${val}${fallasTxt} — el semáforo refleja la confianza %.`;
+  }
+  return "Promedio de clasificación al plan de cuentas";
+});
 
 type BarTone = "ok" | "warn" | "bad" | "neutral";
 
@@ -174,7 +219,7 @@ const barras = computed(() => {
     items.push({
       key: "informe",
       icon: "clipboard-check",
-      label: "Informe post-proceso",
+      label: "Calidad post-lectura (PDF)",
       pct: r.confianzaInformeExtraccion,
       tone: barTone(r.confianzaInformeExtraccion),
     });
@@ -278,6 +323,7 @@ async function loadResumen(): Promise<void> {
   error.value = null;
   try {
     resumen.value = await api.getCasoConfianzaResumen(props.casoId);
+    if (resumen.value) emit("updated", resumen.value);
   } catch (e) {
     error.value = apiErrorMessage(e, "No se pudo cargar el desglose de confianza");
     resumen.value = null;
@@ -559,12 +605,4 @@ onUnmounted(() => {
   opacity: 0.9;
 }
 
-.csp-foot {
-  margin: 0.65rem 0 0;
-  font-size: 0.68rem;
-  color: var(--ink-soft);
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
 </style>

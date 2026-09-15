@@ -1,6 +1,7 @@
 import {
   CasoModel,
   ConfiguracionSistemaModel,
+  ContribuyenteModel,
   CriterioAprobadoModel,
   LineaContableModel,
   ReglasClasificacionVersionModel,
@@ -10,13 +11,14 @@ import {
 } from "@ffa/db";
 import {
   calcularConfianzaGlobal,
-  classifyLines,
+  classifyLinesWithIa,
   type RubroRef,
 } from "@ffa/pipeline";
 import type { ClassifyJobData } from "@ffa/queue";
 import { CONFIG_SISTEMA_ID, CasoEstado, LineaEstado } from "@ffa/shared";
 import type { Job } from "bullmq";
 import { Types } from "mongoose";
+import { skipSiPipelineObsoleto } from "../lib/pipeline-run.js";
 import { assertCasoNoPausado } from "../lib/pausa.js";
 import { enqueueValidate } from "../lib/enqueue.js";
 import { actualizarProgresoCaso } from "../lib/progreso.js";
@@ -24,6 +26,7 @@ import { actualizarProgresoCaso } from "../lib/progreso.js";
 export async function processClassify(job: Job<ClassifyJobData>): Promise<void> {
   const { casoId } = job.data;
   await assertCasoNoPausado(casoId);
+  if (await skipSiPipelineObsoleto(casoId, job.data.runId, (m) => job.log(m))) return;
 
   await transicionarCaso(casoId, CasoEstado.CLASIFICANDO, { nota: `Job ${job.id}` });
   await actualizarProgresoCaso(casoId, "classify");
@@ -88,24 +91,59 @@ export async function processClassify(job: Job<ClassifyJobData>): Promise<void> 
     signoAplicado: (l.signoAplicado ?? "positivo") as "positivo" | "negativo",
   }));
 
-  const classified = classifyLines({
+  let razonSocial: string | undefined;
+  if (caso?.contribuyenteId) {
+    const contrib = await ContribuyenteModel.findById(caso.contribuyenteId).select("razonSocial").lean();
+    razonSocial = contrib?.razonSocial ?? undefined;
+  }
+
+  const classified = await classifyLinesWithIa({
     lineas: normalized,
     rubros,
     reglas,
     criterios,
     umbralConfianza: config.umbralConfianza,
+    contextoCaso: {
+      moneda: caso?.moneda ?? undefined,
+      escala: caso?.escala ?? undefined,
+      razonSocial,
+    },
   });
+
+  const iaCount = classified.filter((c) => c.origenClasificacion === "ia_clasificacion").length;
+  const semCount = classified.filter((c) =>
+    ["semantica", "asistida"].includes(c.origenClasificacion ?? "")
+  ).length;
+  if (iaCount > 0 || semCount > 0) {
+    job.log(`Clasificación: ia=${iaCount} semántica_fallback=${semCount}`);
+  }
 
   for (let i = 0; i < lineasDb.length; i++) {
     const c = classified[i];
-    lineasDb[i].rubroInstitucionalId = c.rubroInstitucionalId
-      ? new Types.ObjectId(c.rubroInstitucionalId)
-      : undefined;
-    lineasDb[i].rubroCodigo = c.rubroCodigo;
-    lineasDb[i].clasificacionPropuesta = lineasDb[i].rubroInstitucionalId;
+    if (c.rubroInstitucionalId) {
+      lineasDb[i].rubroInstitucionalId = new Types.ObjectId(c.rubroInstitucionalId);
+      lineasDb[i].clasificacionPropuesta = lineasDb[i].rubroInstitucionalId;
+      lineasDb[i].rubroCodigo = c.rubroCodigo;
+    } else {
+      lineasDb[i].rubroInstitucionalId = undefined;
+      lineasDb[i].clasificacionPropuesta = undefined;
+      lineasDb[i].rubroCodigo = undefined;
+    }
     lineasDb[i].confianzaClasificacion = c.confianzaClasificacion;
     lineasDb[i].requiereRevision = c.requiereRevision;
     lineasDb[i].origenClasificacion = c.origenClasificacion;
+    if (c.excluirDeCuadratura != null) {
+      lineasDb[i].excluirDeCuadratura = c.excluirDeCuadratura;
+    }
+    if (c.motivoExclusionCuadratura != null) {
+      lineasDb[i].motivoExclusionCuadratura = c.motivoExclusionCuadratura;
+    }
+    if (c.origenClasificacion === "ia_clasificacion") {
+      lineasDb[i].clasificacionIaAt = new Date();
+      if (c.clasificacionIaRazonamiento) {
+        lineasDb[i].clasificacionIaRazonamiento = c.clasificacionIaRazonamiento;
+      }
+    }
     if (c.candidatosAsistidos?.length) {
       lineasDb[i].set(
         "candidatosAsistidos",

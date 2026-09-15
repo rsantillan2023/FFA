@@ -115,6 +115,9 @@ function mapFicha(ficha: {
   version: number;
   validacionesResumen?: { cuadraturaOk?: boolean | null; semaforo?: string | null } | null;
   aprobadaAt?: Date | null;
+  cierreParcial?: boolean | null;
+  motivoCierreParcial?: string | null;
+  observaciones?: string | null;
   balance?: {
     activoCorriente?: number | null;
     activoNoCorriente?: number | null;
@@ -136,6 +139,9 @@ function mapFicha(ficha: {
         }
       : undefined,
     aprobadaAt: ficha.aprobadaAt?.toISOString(),
+    observaciones: ficha.observaciones ?? undefined,
+    cierreParcial: ficha.cierreParcial ?? undefined,
+    motivoCierreParcial: ficha.motivoCierreParcial ?? undefined,
     balance: ficha.balance
       ? {
           activoCorriente: ficha.balance.activoCorriente ?? undefined,

@@ -1,7 +1,16 @@
-import { EstadoFinanciero, ValidacionSeveridad, ValidacionTipo } from "@ffa/shared";
+import {
+  CUADRATURA_TOLERANCIA_FRACCION,
+  EstadoFinanciero,
+  evaluarCuadraturaBalance,
+  ValidacionSeveridad,
+  ValidacionTipo,
+} from "@ffa/shared";
 import type { ClassifiedLine, RubroRef, ValidateContext, ValidateResult, ValidationItem } from "../types.js";
+import { lineasAlcanceBalance } from "./alcance-balance.js";
+import { computeCuadraturaBalance } from "./balance-cuadratura.js";
 import { buildExtendedValidations } from "./rules-extended.js";
-function sumByEstado(
+
+function sumByEstadoGlobal(
   lineas: ClassifiedLine[],
   rubrosById: Map<string, RubroRef>,
   estado: EstadoFinanciero
@@ -25,41 +34,111 @@ export function validateCase(
   const rubrosById = new Map(rubros.map((r) => [r.id, r]));
   const validaciones: ValidationItem[] = [];
 
-  const activo = sumByEstado(lineas, rubrosById, EstadoFinanciero.ACTIVO);
-  const pasivo = sumByEstado(lineas, rubrosById, EstadoFinanciero.PASIVO);
-  const patrimonio = sumByEstado(lineas, rubrosById, EstadoFinanciero.PATRIMONIO);
-  const tolerancia = Math.max(activo, pasivo + patrimonio) * 0.001;
-  const cuadraturaOk = Math.abs(activo - (pasivo + patrimonio)) <= tolerancia;
+  const balance = computeCuadraturaBalance(lineas, rubros);
+  const { activo, pasivo, patrimonio } = balance;
+  const evalCuad = evaluarCuadraturaBalance(activo, pasivo, patrimonio);
+  const { cuadraturaOk, tolerancia, cuadraturaCritica, diferenciaPct } = evalCuad;
+
+  const modoLabel =
+    balance.modo === "balance_objetivo"
+      ? `balance objetivo (págs. ${balance.paginasBalanceObjetivo.join(", ")}, ${balance.lineasUsadas} líneas)`
+      : balance.modo === "global_filtrado"
+        ? "global excluyendo líneas marcadas"
+        : "global documento";
 
   validaciones.push({
     tipo: ValidacionTipo.CUADRATURA,
-    severidad: cuadraturaOk ? ValidacionSeveridad.INFO : ValidacionSeveridad.CRITICAL,
+    severidad: cuadraturaOk
+      ? ValidacionSeveridad.INFO
+      : cuadraturaCritica
+        ? ValidacionSeveridad.CRITICAL
+        : ValidacionSeveridad.WARNING,
     passed: cuadraturaOk,
     mensaje: cuadraturaOk
-      ? `Cuadratura OK: Activo ${activo.toLocaleString("es-CL")} = Pasivo ${pasivo.toLocaleString("es-CL")} + Patrimonio ${patrimonio.toLocaleString("es-CL")}`
-      : `Cuadratura fallida: Activo ${activo.toLocaleString("es-CL")} ≠ Pasivo ${pasivo.toLocaleString("es-CL")} + Patrimonio ${patrimonio.toLocaleString("es-CL")}`,
-    metadata: { activo, pasivo, patrimonio, tolerancia },
+      ? `Cuadratura OK (${modoLabel}): Activo ${activo.toLocaleString("es-CL")} = Pasivo ${pasivo.toLocaleString("es-CL")} + Patrimonio ${patrimonio.toLocaleString("es-CL")}`
+      : cuadraturaCritica
+        ? `Cuadratura fallida (${modoLabel}, ${diferenciaPct.toFixed(2)}%): Activo ${activo.toLocaleString("es-CL")} ≠ Pasivo ${pasivo.toLocaleString("es-CL")} + Patrimonio ${patrimonio.toLocaleString("es-CL")}`
+        : `Cuadratura con diferencia menor (${modoLabel}, ${diferenciaPct.toFixed(2)}% — tolerancia ${(CUADRATURA_TOLERANCIA_FRACCION * 100).toFixed(2)}%): revisar líneas de detalle`,
+    metadata: {
+      activo,
+      pasivo,
+      patrimonio,
+      tolerancia,
+      diferenciaPct,
+      cuadraturaCritica,
+      modo: balance.modo,
+      paginasBalanceObjetivo: balance.paginasBalanceObjetivo,
+      lineasUsadas: balance.lineasUsadas,
+    },
   });
 
-  const sinClasificar = lineas.filter((l) => !l.rubroInstitucionalId).length;
+  if (balance.modo === "balance_objetivo") {
+    const gActivo = sumByEstadoGlobal(lineas, rubrosById, EstadoFinanciero.ACTIVO);
+    const gPasivo = sumByEstadoGlobal(lineas, rubrosById, EstadoFinanciero.PASIVO);
+    const gPatrimonio = sumByEstadoGlobal(lineas, rubrosById, EstadoFinanciero.PATRIMONIO);
+    const gTol = Math.max(gActivo, gPasivo + gPatrimonio) * CUADRATURA_TOLERANCIA_FRACCION;
+    const globalCuadra = Math.abs(gActivo - (gPasivo + gPatrimonio)) <= gTol;
+    if (!globalCuadra) {
+      validaciones.push({
+        tipo: ValidacionTipo.CUADRATURA,
+        severidad: ValidacionSeveridad.INFO,
+        passed: true,
+        mensaje: `Cuadratura global documento difiere (esperado en PDFs mixtos): Activo ${gActivo.toLocaleString("es-CL")} vs P+PN ${(gPasivo + gPatrimonio).toLocaleString("es-CL")}`,
+        metadata: {
+          activo: gActivo,
+          pasivo: gPasivo,
+          patrimonio: gPatrimonio,
+          origen: "sistema",
+        },
+      });
+    }
+  }
+
+  const alcance = lineasAlcanceBalance(lineas, balance.paginasBalanceObjetivo);
+  const alcanceLabel = balance.paginasBalanceObjetivo.length
+    ? `balance objetivo (págs. ${balance.paginasBalanceObjetivo.join(", ")})`
+    : "documento";
+
+  const sinClasificar = alcance.filter((l) => !l.rubroInstitucionalId).length;
   if (sinClasificar > 0) {
     validaciones.push({
       tipo: ValidacionTipo.CLASIFICACION_ORIGEN,
       severidad: ValidacionSeveridad.WARNING,
       passed: false,
-      mensaje: `${sinClasificar} línea(s) sin clasificar`,
+      mensaje: `${sinClasificar} línea(s) sin clasificar en ${alcanceLabel}`,
       metadata: { sinClasificar },
     });
   }
 
-  const bajoUmbral = lineas.filter((l) => l.confianzaClasificacion < umbralConfianza).length;
+  const bajoUmbralAccion = alcance.filter(
+    (l) =>
+      l.confianzaClasificacion < umbralConfianza &&
+      (l.requiereRevision || !l.rubroInstitucionalId)
+  );
+  const bajoUmbral = bajoUmbralAccion.length;
   if (bajoUmbral > 0) {
     validaciones.push({
       tipo: ValidacionTipo.CLASIFICACION_ORIGEN,
       severidad: ValidacionSeveridad.WARNING,
       passed: false,
-      mensaje: `${bajoUmbral} línea(s) bajo umbral de confianza (${umbralConfianza}%)`,
+      mensaje: `${bajoUmbral} línea(s) pendientes con confianza baja (${umbralConfianza}%) en ${alcanceLabel}`,
       metadata: { bajoUmbral, umbralConfianza },
+    });
+  }
+
+  const bajoUmbralInformativo = alcance.filter(
+    (l) =>
+      l.confianzaClasificacion < umbralConfianza &&
+      !l.requiereRevision &&
+      l.rubroInstitucionalId
+  ).length;
+  if (bajoUmbralInformativo > 0) {
+    validaciones.push({
+      tipo: ValidacionTipo.CLASIFICACION_ORIGEN,
+      severidad: ValidacionSeveridad.INFO,
+      passed: true,
+      mensaje: `${bajoUmbralInformativo} línea(s) con confianza histórica baja ya resueltas en ${alcanceLabel}`,
+      metadata: { bajoUmbralInformativo, umbralConfianza },
     });
   }
 
@@ -83,7 +162,13 @@ export function validateCase(
   }
 
   validaciones.push(
-    ...buildExtendedValidations(lineas, rubrosById, ctx, umbralConfianza)
+    ...buildExtendedValidations(lineas, rubrosById, {
+      ...ctx,
+      paginasBalanceObjetivo:
+        balance.paginasBalanceObjetivo.length > 0
+          ? balance.paginasBalanceObjetivo
+          : ctx.paginasBalanceObjetivo,
+    }, umbralConfianza)
   );
 
   const hasCritical = validaciones.some(
@@ -94,8 +179,8 @@ export function validateCase(
   );
 
   let semaforo: "verde" | "amarillo" | "rojo" = "verde";
-  if (hasCritical || !cuadraturaOk) semaforo = "rojo";
-  else if (hasWarning || bajoUmbral > 0) semaforo = "amarillo";
+  if (hasCritical || cuadraturaCritica) semaforo = "rojo";
+  else if (hasWarning || !cuadraturaOk || bajoUmbral > 0) semaforo = "amarillo";
 
   return { validaciones, semaforo, cuadraturaOk };
 }

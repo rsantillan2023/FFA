@@ -45,6 +45,8 @@ const fichaCanonicaSchema = new Schema(
     aprobadaPor: { type: Schema.Types.ObjectId, ref: "User" },
     aprobadaAt: Date,
     observaciones: String,
+    cierreParcial: { type: Boolean, default: false },
+    motivoCierreParcial: String,
   },
   { timestamps: true }
 );

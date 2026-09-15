@@ -20,7 +20,11 @@ import {
   type LineaContableDto,
   type RubroOptionDto,
   type ClasificacionIaMasivaResultDto,
+  type ClasificacionIaProgresoDto,
+  type EliminarDuplicadosLineasResultDto,
   type SugerenciaClasificacionIaDto,
+  type BalanceAnalisisDto,
+  type ReconciliarBalanceResultDto,
 } from "@ffa/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -36,7 +40,9 @@ import {
   isClasificacionIaNoDisponible,
   sugerirClasificacionLineaIa,
 } from "../services/clasificacion-ia.js";
+import { obtenerClasificacionIaProgreso } from "../services/clasificacion-ia-progreso.js";
 import {
+  eliminarLineasDuplicadas,
   generarFichaAprobada,
   guardarCriterioDesdeLinea,
   puedeAprobarFicha,
@@ -44,6 +50,7 @@ import {
   resolverPendientesRevision,
   revalidarCaso,
 } from "../services/revision.js";
+import { analizarBalanceCaso, reconciliarBalanceCaso } from "../services/balance-reconciliar.js";
 
 async function mapLinea(doc: LineaContableDocument): Promise<LineaContableDto> {
   let rubroNombre: string | undefined;
@@ -75,14 +82,22 @@ async function mapLinea(doc: LineaContableDocument): Promise<LineaContableDto> {
     confianzaClasificacion: doc.confianzaClasificacion ?? undefined,
     requiereRevision: doc.requiereRevision,
     origenClasificacion: doc.origenClasificacion ?? undefined,
+    clasificacionIaAt: doc.clasificacionIaAt?.toISOString?.() ?? undefined,
+    clasificacionIaRazonamiento: doc.clasificacionIaRazonamiento ?? undefined,
     candidatosAsistidos: candidatos?.length ? candidatos : undefined,
     estado: doc.estado,
     bbox:
       bbox?.x != null && bbox?.y != null && bbox?.w != null && bbox?.h != null
         ? { x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h }
         : undefined,
+    excluirDeCuadratura: doc.excluirDeCuadratura ?? undefined,
+    motivoExclusionCuadratura: doc.motivoExclusionCuadratura ?? undefined,
   };
 }
+
+const deleteLineaSchema = z.object({
+  eliminarSimilares: z.boolean().optional(),
+});
 
 const patchLineaSchema = z.object({
   version: z.number().int().optional(),
@@ -110,6 +125,8 @@ const aprobarFichaSchema = z.object({
   version: z.number().int(),
   observaciones: z.string().optional(),
   ignorarValidacionesPendientes: z.boolean().optional(),
+  cierreParcial: z.boolean().optional(),
+  motivoCierreParcial: z.string().optional(),
 });
 
 const patchMetadatosSchema = z.object({
@@ -255,13 +272,37 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         activo: true,
       }).sort({ orden: 1 });
 
-      return rubros.map((r) => ({
+      const refs = rubros.map((r) => ({
         id: r._id.toString(),
         codigo: r.codigo,
         nombre: r.nombre,
         estadoFinanciero: r.estadoFinanciero,
-        convencionSigno: r.convencionSigno ?? "normal",
+        convencionSigno: (r.convencionSigno ?? "normal") as "normal" | "invertido",
+        padreId: r.padreId?.toString(),
       }));
+
+      const { filtrarRubrosAsignables } = await import("@ffa/pipeline");
+      const asignables = filtrarRubrosAsignables(refs);
+      const idsAsignables = new Set(asignables.map((r) => r.id));
+
+      const lineas = await LineaContableModel.find({ casoId: id })
+        .select("rubroInstitucionalId rubroCodigo")
+        .lean();
+      const idsIncluidos = new Set(idsAsignables);
+      for (const l of lineas) {
+        if (l.rubroInstitucionalId) idsIncluidos.add(l.rubroInstitucionalId.toString());
+        if (l.rubroCodigo) {
+          const porCodigo = refs.find((r) => r.codigo === l.rubroCodigo);
+          if (porCodigo) idsIncluidos.add(porCodigo.id);
+        }
+      }
+
+      return refs
+        .filter((r) => idsIncluidos.has(r.id))
+        .map(({ padreId: _p, ...r }) => ({
+          ...r,
+          asignable: idsAsignables.has(r.id),
+        }));
     }
   );
 
@@ -286,6 +327,49 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
       return reply
         .header("Content-Type", contentType)
         .header("Content-Disposition", `inline; filename="${doc.nombreOriginal}"`)
+        .send(buffer);
+    }
+  );
+
+  app.get(
+    "/casos/:id/documentos/:docId/derivados/:nombre",
+    { preHandler: [authenticate, lecturaEquipo] },
+    async (request, reply) => {
+      const { id, docId, nombre } = request.params as {
+        id: string;
+        docId: string;
+        nombre: string;
+      };
+      if (!/^[\w.-]+\.(png|jpe?g|webp)$/i.test(nombre)) {
+        return reply.code(400).send({ error: "Nombre de derivado inválido" });
+      }
+
+      const doc = await DocumentoFuenteModel.findOne({ _id: docId, casoId: id });
+      if (!doc) return reply.code(404).send({ error: "Documento no encontrado" });
+
+      const keys = [
+        ...(doc.derivados?.paginasNormalizadas ?? []),
+        ...(doc.derivados?.miniaturaKey ? [doc.derivados.miniaturaKey] : []),
+      ];
+      const storageKey = keys.find((k) => k.endsWith(`/${nombre}`) || k.endsWith(`\\${nombre}`) || k.endsWith(nombre));
+      if (!storageKey) {
+        return reply.code(404).send({ error: "Derivado no encontrado" });
+      }
+
+      const { buffer, contentType } = await getDocumentoBuffer(storageKey);
+      await registrarAuditoria({
+        actorTipo: "usuario",
+        actorId: request.user.id,
+        casoId: id,
+        entidad: "documento_fuente",
+        entidadId: docId,
+        accion: "documento_derivado_consultado",
+        payload: { nombre },
+      });
+
+      return reply
+        .header("Content-Type", contentType)
+        .header("Content-Disposition", `inline; filename="${nombre}"`)
         .send(buffer);
     }
   );
@@ -343,6 +427,8 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         linea.rubroCodigo = rubro.codigo;
         linea.set("clasificacionFinal", rubro._id);
         linea.origenClasificacion = "manual";
+        linea.set("clasificacionIaAt", undefined);
+        linea.clasificacionIaRazonamiento = undefined;
       }
 
       linea.confianzaClasificacion = 100;
@@ -376,6 +462,154 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
+  app.get(
+    "/casos/:id/balance/analisis",
+    { preHandler: [authenticate, lecturaEquipo] },
+    async (request, reply): Promise<BalanceAnalisisDto | { error: string }> => {
+      const { id } = request.params as { id: string };
+      const caso = await CasoModel.findById(id);
+      if (!caso) return reply.code(404).send({ error: "Caso no encontrado" });
+      try {
+        const query = request.query as { paginas?: string; ia?: string };
+        const paginasObjetivo = query.paginas
+          ? query.paginas.split(",").map((p) => parseInt(p.trim(), 10)).filter((n) => n > 0)
+          : undefined;
+        const diagnosticoIa = query.ia === "1" || query.ia === "true";
+        return await analizarBalanceCaso(id, paginasObjetivo, { diagnosticoIa });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "No se pudo analizar el balance";
+        return reply.code(400).send({ error: msg });
+      }
+    }
+  );
+
+  app.post(
+    "/casos/:id/balance/reconciliar",
+    { preHandler: [authenticate, edicionEquipo] },
+    async (request, reply): Promise<ReconciliarBalanceResultDto | { error: string }> => {
+      const { id } = request.params as { id: string };
+      const caso = await CasoModel.findById(id);
+      if (!caso) return reply.code(404).send({ error: "Caso no encontrado" });
+      try {
+        const { assertFichaEditable } = await import("../services/revision.js");
+        await assertFichaEditable(id);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Ficha no editable";
+        return reply.code(409).send({ error: msg });
+      }
+      const body = (request.body ?? {}) as { paginasObjetivo?: number[]; crearAjuste?: boolean };
+      try {
+        const result = await reconciliarBalanceCaso(id, {
+          paginasObjetivo: body.paginasObjetivo,
+          crearAjuste: body.crearAjuste,
+        });
+        await registrarAuditoria({
+          actorTipo: "usuario",
+          actorId: request.user.id,
+          casoId: id,
+          entidad: "caso",
+          entidadId: id,
+          accion: "balance_reconciliado",
+          payload: {
+            accionesAplicadas: result.accionesAplicadas,
+            cuadraturaOk: result.analisis.totales.cuadraturaOk,
+            diferencia: result.analisis.totales.diferencia,
+          },
+        });
+        return result;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "No se pudo reconciliar el balance";
+        return reply.code(400).send({ error: msg });
+      }
+    }
+  );
+
+  app.post(
+    "/casos/:id/lineas/eliminar-duplicados",
+    { preHandler: [authenticate, edicionEquipo] },
+    async (request, reply): Promise<EliminarDuplicadosLineasResultDto | { error: string }> => {
+      const { id } = request.params as { id: string };
+      const caso = await CasoModel.findById(id);
+      if (!caso) return reply.code(404).send({ error: "Caso no encontrado" });
+
+      try {
+        return await eliminarLineasDuplicadas(id, request.user.id);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "No se pudieron eliminar duplicados";
+        const code = msg.includes("aprobada") ? 409 : 400;
+        return reply.code(code).send({ error: msg });
+      }
+    }
+  );
+
+  app.delete(
+    "/casos/:id/lineas/:lid",
+    { preHandler: [authenticate, edicionEquipo] },
+    async (request, reply) => {
+      const { id, lid } = request.params as { id: string; lid: string };
+      const parsed = deleteLineaSchema.safeParse(request.body ?? {});
+      if (!parsed.success) return reply.code(400).send({ error: "Datos inválidos" });
+
+      const caso = await CasoModel.findById(id);
+      if (!caso) return reply.code(404).send({ error: "Caso no encontrado" });
+
+      try {
+        const { assertFichaEditable } = await import("../services/revision.js");
+        await assertFichaEditable(id);
+      } catch (e) {
+        return reply.code(409).send({
+          error: e instanceof Error ? e.message : "Ficha aprobada no editable",
+        });
+      }
+
+      const linea = await LineaContableModel.findOne({ _id: lid, casoId: id });
+      if (!linea) return reply.code(404).send({ error: "Línea no encontrada" });
+
+      const denomNorm =
+        linea.denominacionNormalizada ?? normalizarDenominacion(linea.denominacionOriginal);
+      const montoRef = linea.montoNormalizado ?? linea.montoOriginal;
+
+      let idsEliminar = [lid];
+      if (parsed.data.eliminarSimilares) {
+        const similares = await LineaContableModel.find({
+          casoId: id,
+          denominacionNormalizada: denomNorm,
+          $or: [{ montoNormalizado: montoRef }, { montoOriginal: montoRef }],
+        }).select("_id");
+        idsEliminar = similares.map((s) => s._id.toString());
+      }
+
+      const res = await LineaContableModel.deleteMany({
+        _id: { $in: idsEliminar },
+        casoId: id,
+      });
+
+      caso.version = (caso.version ?? 0) + 1;
+      await caso.save();
+
+      await recalcularConfianzaCaso(id);
+      await revalidarCaso(id);
+
+      await registrarAuditoria({
+        actorTipo: "usuario",
+        actorId: request.user.id,
+        casoId: id,
+        entidad: "linea_contable",
+        entidadId: lid,
+        accion: parsed.data.eliminarSimilares ? "lineas_eliminadas_masiva" : "linea_eliminada",
+        payload: {
+          eliminadas: res.deletedCount ?? idsEliminar.length,
+          lineaIds: idsEliminar,
+          denominacionOriginal: linea.denominacionOriginal,
+          denominacionNormalizada: denomNorm,
+          monto: montoRef,
+        },
+      });
+
+      return { eliminadas: res.deletedCount ?? idsEliminar.length };
+    }
+  );
+
   app.post(
     "/casos/:id/lineas/:lid/sugerir-ia",
     { preHandler: [authenticate, edicionEquipo] },
@@ -397,19 +631,23 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
       }
 
       try {
-        const sugerencia = await sugerirClasificacionLineaIa(id, lid, request.user.id);
+        const sugerencia = await sugerirClasificacionLineaIa(id, lid, request.user.id, { persistir: true });
+        await recalcularConfianzaCaso(id);
+        await revalidarCaso(id);
+
         await registrarAuditoria({
           actorTipo: "usuario",
           actorId: request.user.id,
           casoId: id,
           entidad: "linea_contable",
           entidadId: lid,
-          accion: "linea_sugerencia_ia",
+          accion: "linea_clasificada_ia",
           payload: {
             denominacion: linea.denominacionOriginal,
             rubroCodigo: sugerencia.rubroCodigo,
             confianza: sugerencia.confianza,
             proveedor: sugerencia.proveedor,
+            persistida: true,
           },
         });
         return sugerencia;
@@ -477,6 +715,17 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         const msg = e instanceof Error ? e.message : "Error al aplicar clasificación IA";
         return reply.code(502).send({ error: msg });
       }
+    }
+  );
+
+  app.get(
+    "/casos/:id/lineas/clasificacion-ia/progreso",
+    { preHandler: [authenticate, lecturaEquipo] },
+    async (request, reply): Promise<ClasificacionIaProgresoDto> => {
+      const { id } = request.params as { id: string };
+      const caso = await CasoModel.findById(id);
+      if (!caso) return reply.code(404).send({ error: "Caso no encontrado" });
+      return obtenerClasificacionIaProgreso(id);
     }
   );
 
@@ -788,7 +1037,12 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(409).send({ error: "El caso fue modificado — recargue e intente de nuevo" });
       }
 
-      const forzarPendientes = parsed.data.ignorarValidacionesPendientes === true;
+      const forzarPendientes =
+        parsed.data.ignorarValidacionesPendientes === true || parsed.data.cierreParcial === true;
+      const cierreParcial = parsed.data.cierreParcial === true;
+      if (cierreParcial && !parsed.data.motivoCierreParcial?.trim()) {
+        return reply.code(400).send({ error: "Indicá el motivo del cierre con observaciones" });
+      }
       if (forzarPendientes) {
         await resolverPendientesRevision(id, request.user.id);
       }
@@ -800,14 +1054,24 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: check.motivos.join("; ") });
       }
 
-      const fichaId = await generarFichaAprobada(caso, request.user.id, parsed.data.observaciones);
-      caso.observaciones = parsed.data.observaciones ?? caso.observaciones;
+      const obsBase = parsed.data.observaciones?.trim() ?? "";
+      const obsFinal = cierreParcial
+        ? [obsBase, `[Cierre parcial] ${parsed.data.motivoCierreParcial!.trim()}`]
+            .filter(Boolean)
+            .join("\n\n")
+        : obsBase || undefined;
+
+      const fichaId = await generarFichaAprobada(caso, request.user.id, obsFinal, {
+        cierreParcial,
+        motivoCierreParcial: parsed.data.motivoCierreParcial?.trim(),
+      });
+      caso.observaciones = obsFinal ?? caso.observaciones;
       caso.version = (caso.version ?? 0) + 1;
       await caso.save();
 
       await transicionarCaso(id, CasoEstado.APROBADO, {
         by: request.user.id,
-        nota: "Ficha aprobada por analista",
+        nota: cierreParcial ? "Ficha cerrada con observaciones (cierre parcial)" : "Ficha aprobada por analista",
       });
 
       await registrarAuditoria({
@@ -816,8 +1080,12 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
         casoId: id,
         entidad: "ficha_canonica",
         entidadId: fichaId,
-        accion: "ficha_aprobada",
-        payload: { observaciones: parsed.data.observaciones },
+        accion: cierreParcial ? "ficha_cierre_parcial" : "ficha_aprobada",
+        payload: {
+          observaciones: obsFinal,
+          cierreParcial,
+          motivoCierreParcial: parsed.data.motivoCierreParcial?.trim(),
+        },
       });
 
       const ficha = await FichaCanonicaModel.findById(fichaId);
@@ -833,6 +1101,9 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
             }
           : undefined,
         aprobadaAt: ficha!.aprobadaAt?.toISOString(),
+        observaciones: ficha!.observaciones ?? undefined,
+        cierreParcial: ficha!.cierreParcial ?? undefined,
+        motivoCierreParcial: ficha!.motivoCierreParcial ?? undefined,
       };
       return reply.code(201).send(dto);
     }
@@ -876,6 +1147,9 @@ export async function casosRevisionRoutes(app: FastifyInstance): Promise<void> {
             }
           : undefined,
         aprobadaAt: ficha.aprobadaAt?.toISOString(),
+        observaciones: ficha.observaciones ?? undefined,
+        cierreParcial: ficha.cierreParcial ?? undefined,
+        motivoCierreParcial: ficha.motivoCierreParcial ?? undefined,
       };
     }
   );

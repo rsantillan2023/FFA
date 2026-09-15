@@ -60,28 +60,30 @@ const shortLabel = computed(() => (props.value ? (SHORT[props.value] ?? props.va
 
 .semaforo-ind__housing {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
+  gap: 3px;
+  padding: 2px 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ink) 8%, var(--panel));
-  border: 1px solid var(--line);
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .semaforo-ind--lg .semaforo-ind__housing {
-  gap: 3px;
-  padding: 4px;
+  gap: 4px;
+  padding: 3px 5px;
 }
 
 .semaforo-ind__lamp {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ink-faint, #94a3b8) 35%, var(--line));
-  opacity: 0.45;
-  transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink-soft, #94a3b8) 70%, var(--line));
+  opacity: 0.85;
+  transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s, border-color 0.15s;
 }
 
 .semaforo-ind--lg .semaforo-ind__lamp {
@@ -92,6 +94,7 @@ const shortLabel = computed(() => (props.value ? (SHORT[props.value] ?? props.va
 .semaforo-ind__lamp.on {
   opacity: 1;
   transform: scale(1.08);
+  border-color: transparent;
 }
 
 .semaforo-ind__lamp--rojo.on {

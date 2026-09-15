@@ -9,8 +9,22 @@ const MONEDA_PATTERNS: { moneda: string; patterns: RegExp[] }[] = [
 ];
 
 const ESCALA_PATTERNS: { factor: number; label: string; patterns: RegExp[] }[] = [
+  {
+    factor: 1_000,
+    label: "miles",
+    patterns: [
+      /\bmus\$\b/i,
+      /\bm\$\s*[-–]?\s*miles/i,
+      /miles de pesos chilenos/i,
+      /miles de d[oó]lares/i,
+      /miles de pesos/i,
+      /miles de/i,
+      /expresad[oa]s en miles/i,
+      /cifras en miles/i,
+      /thousands of us/i,
+    ],
+  },
   { factor: 1_000_000, label: "millones", patterns: [/millones de/i, /expresad[oa]s en millones/i, /cifras en millones/i] },
-  { factor: 1_000, label: "miles", patterns: [/miles de/i, /expresad[oa]s en miles/i, /cifras en miles/i] },
   { factor: 1, label: "unidades", patterns: [/sin escala/i, /unidades de/i] },
 ];
 
@@ -63,11 +77,19 @@ export function enriquecerMonedaEscala(
       ? metadata.moneda.toUpperCase()
       : detected?.moneda;
 
-  const escalaFactor = metadata.escalaFactor ?? legacyEscalaToFactor(metadata.escala) ?? detected?.escalaFactor;
+  const llmFactor = metadata.escalaFactor ?? legacyEscalaToFactor(metadata.escala);
+  const textFactor = detected?.escalaFactor;
+  // Texto del PDF (MUS$, miles de…) prevalece sobre escala inferida solo por LLM
+  const escalaFactor =
+    textFactor != null && textFactor !== 1 && llmFactor != null && textFactor !== llmFactor
+      ? textFactor
+      : (llmFactor ?? textFactor ?? 1);
   const descripcionEscala =
-    metadata.descripcionEscala ??
-    detected?.descripcionEscala ??
-    (metadata.escala && metadata.escala !== "indeterminada" ? metadata.escala : undefined);
+    escalaFactor === textFactor && detected?.descripcionEscala
+      ? detected.descripcionEscala
+      : (metadata.descripcionEscala ??
+        detected?.descripcionEscala ??
+        (metadata.escala && metadata.escala !== "indeterminada" ? metadata.escala : undefined));
 
   let escala = metadata.escala;
   if (escalaFactor === 1_000_000) escala = "millones";

@@ -4,6 +4,7 @@ import {
   dispatchJob,
   pipelineJobId,
   type ClassifyJobData,
+  type ExtractJobData,
   type PreprocessJobData,
 } from "@ffa/queue";
 import { CONFIG_SISTEMA_ID } from "@ffa/shared";
@@ -27,6 +28,26 @@ export async function enqueuePreprocess(
     { casoId, documentoId, runId },
     {
       jobId: pipelineJobId("preprocess", documentoId, runId),
+      removeOnComplete: 100,
+      removeOnFail: 200,
+      attempts,
+      backoff: { type: "exponential", delay: 2000 },
+    }
+  );
+}
+
+export async function enqueueExtract(
+  casoId: string,
+  documentoId: string,
+  runId?: string
+): Promise<void> {
+  const attempts = await getAttempts("extract");
+  await dispatchJob<ExtractJobData>(
+    QUEUE_NAMES.EXTRACT,
+    "extract-document",
+    { casoId, documentoId, runId },
+    {
+      jobId: pipelineJobId("extract", documentoId, runId),
       removeOnComplete: 100,
       removeOnFail: 200,
       attempts,

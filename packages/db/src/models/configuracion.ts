@@ -54,6 +54,8 @@ const configuracionSchema = new Schema(
       encryptedPassword: String,
       carpeta: { type: String, default: "INBOX" },
     },
+    /** Clasificación IA automática en preparación pre-revisión (worker). */
+    preRevisionIaAutomatica: { type: Boolean, default: true },
     politicaIlegible: {
       accion: {
         type: String,

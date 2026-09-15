@@ -13,6 +13,7 @@ export const CasoEstado = {
   CANCELADO: "cancelado",
   ERROR: "error",
   PENDIENTE_CALIDAD: "pendiente_calidad",
+  ARCHIVADO: "archivado",
 } as const;
 
 export type CasoEstado = (typeof CasoEstado)[keyof typeof CasoEstado];

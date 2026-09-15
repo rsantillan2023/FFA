@@ -17,20 +17,12 @@
           Texto extraído por IA
         </button>
         <button
-          v-if="caso.estado === 'en_revision'"
+          v-if="!fichaCerrada"
           class="btn btn-ghost"
           type="button"
-          @click="onReprocesar"
+          @click="accionesAvanzadasOpen = true"
         >
-          Reprocesar
-        </button>
-        <button
-          v-if="showReinicioFojaCero"
-          class="btn btn-ghost btn-reinicio"
-          type="button"
-          @click="openReinicioModal"
-        >
-          Reiniciar a foja cero
+          Acciones avanzadas
         </button>
         <RouterLink
           v-if="caso.estado === 'aprobado' || caso.estado === 'informe_generado'"
@@ -42,97 +34,79 @@
       </template>
     </PageHeader>
 
-    <section
-      class="card revision-meta-strip"
-      :class="{
-        'revision-meta-strip--ok': metaVerificado,
-        'revision-meta-strip--warn': !metaVerificado && metaCompleto,
-        'revision-meta-strip--err': !metaCompleto,
-      }"
+    <ProvenanceFallbackBanner :provenance="provenanceCaso" />
+
+    <aside
+      v-if="clasificacionIaMasivaLoading"
+      class="revision-ia-banner-top revision-ia-live"
+      role="status"
+      aria-live="polite"
+      aria-label="Clasificación con inteligencia artificial en curso"
     >
-      <dl
-        class="revision-meta-strip__line"
-        :class="{ 'revision-meta-strip__line--pending': !metaVerificado && !fichaCerrada }"
+      <div class="revision-ia-live__head">
+        <div class="revision-ia-live__spinner" aria-hidden="true">
+          <i class="fas fa-wand-magic-sparkles fa-spin"></i>
+        </div>
+        <div class="revision-ia-live__main">
+          <p class="revision-ia-banner-top__title">
+            <strong>Estoy procesando las líneas dudosas con IA</strong>
+            <span v-if="clasificacionIaProgresoTotal > 0" class="revision-ia-live__count">
+              {{ clasificacionIaProgresoActual }}/{{ clasificacionIaProgresoTotal }}
+            </span>
+          </p>
+          <p class="revision-ia-banner-top__hint">
+            Podés seguir revisando lo que ya quedó listo o volver más tarde para ver todos los resultados.
+          </p>
+          <p v-if="iaLineaEnCurso" class="revision-ia-live__curso">
+            Ahora: {{ truncarDenominacion(iaLineaEnCurso.denominacionOriginal, 64) }}
+          </p>
+          <p v-else-if="clasificacionIaTrabajandoEtapa" class="revision-ia-live__curso revision-ia-live__curso--muted">
+            {{ clasificacionIaTrabajandoEtapa }}
+          </p>
+        </div>
+      </div>
+      <ul v-if="iaUltimasLineas.length" class="revision-ia-live__feed">
+        <li
+          v-for="ev in iaUltimasLineas.slice(0, 5)"
+          :key="`${ev.lineaId}-${ev.at}`"
+          class="revision-ia-live__feed-item"
+          :class="{
+            'revision-ia-live__feed-item--ok': ev.estado === 'ok',
+            'revision-ia-live__feed-item--err': ev.estado === 'error',
+          }"
+        >
+          <i
+            :class="
+              ev.estado === 'ok'
+                ? 'fas fa-check'
+                : ev.estado === 'error'
+                  ? 'fas fa-xmark'
+                  : 'fas fa-spinner fa-spin'
+            "
+            aria-hidden="true"
+          ></i>
+          <span class="revision-ia-live__feed-concepto">{{
+            truncarDenominacion(ev.denominacionOriginal, 40)
+          }}</span>
+          <span v-if="ev.rubroCodigo" class="revision-ia-live__feed-rubro">{{ ev.rubroCodigo }}</span>
+        </li>
+      </ul>
+      <button
+        v-if="revisionActiveStep !== 1 && !fichaCerrada"
+        type="button"
+        class="btn btn-ghost btn-sm revision-ia-banner-top__goto"
+        @click="goRevisionStep(1)"
       >
-        <div class="revision-meta-strip__cell revision-meta-strip__cell--lead">
-          <dt>Identificación del expediente</dt>
-          <dd>
-            <span class="revision-meta-strip__ref">{{ metaReferenciaDisplay }}</span>
-            <span v-if="caso.numero" class="revision-meta-strip__num">{{ caso.numero }}</span>
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell revision-meta-strip__cell--status">
-          <dt>Estado</dt>
-          <dd>
-            <span v-if="metaVerificado" class="meta-status meta-status--ok" title="Verificados por analista">
-              <i class="fas fa-circle-check" aria-hidden="true"></i>
-              Verificado
-            </span>
-            <span
-              v-else-if="metaDirty && metaGuardadoSnapshot"
-              class="meta-status meta-status--warn"
-              title="Cambios sin confirmar"
-            >
-              <i class="fas fa-pen" aria-hidden="true"></i>
-              Sin confirmar
-            </span>
-            <span v-else class="meta-status meta-status--pending" title="Pendiente de verificación">
-              <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-              Pendiente
-            </span>
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell revision-meta-strip__cell--empresa">
-          <dt>Empresa</dt>
-          <dd :class="{ 'meta-value--warn': !metaRazonSocial.trim() }" :title="metaRazonSocial.trim() || undefined">
-            {{ metaRazonSocial.trim() || "— sin razón social —" }}
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell">
-          <dt>RUT</dt>
-          <dd :title="metaRut.trim() || undefined">{{ metaRut.trim() || "—" }}</dd>
-        </div>
-        <div class="revision-meta-strip__cell">
-          <dt>Ejercicio</dt>
-          <dd :class="{ 'meta-value--err': metaEjercicio == null || Number.isNaN(metaEjercicio) }">
-            {{ metaEjercicio ?? "— sin ejercicio —" }}
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell">
-          <dt>Moneda</dt>
-          <dd
-            :class="{ 'meta-value--err': !metaMoneda.trim() }"
-            :title="metaMoneda.trim() ? monedaLabel(metaMoneda) : undefined"
-          >
-            {{ metaMoneda.trim() ? monedaLabel(metaMoneda) : "— sin moneda —" }}
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell">
-          <dt>Escala</dt>
-          <dd :class="{ 'meta-value--err': metaEscala === 'indeterminada' }">
-            {{ escalaLabel(metaEscala) }}
-          </dd>
-        </div>
-        <div class="revision-meta-strip__cell revision-meta-strip__cell--doc">
-          <dt>Documento</dt>
-          <dd class="meta-doc-name" :title="documento.nombreOriginal">{{ documento.nombreOriginal }}</dd>
-        </div>
-        <div v-if="!metaVerificado && !fichaCerrada" class="revision-meta-strip__cell revision-meta-strip__cell--action">
-          <button
-            class="btn btn-sm revision-meta-strip__action-btn"
-            :class="metaCompleto ? 'btn-primary' : 'btn-ghost'"
-            type="button"
-            @click="scrollToIdentificacion"
-          >
-            {{ metaCompleto ? "Confirmar" : "Completar" }}
-          </button>
-        </div>
-      </dl>
-      <p v-if="!metaVerificado && !fichaCerrada" class="revision-meta-strip__hint">
-        Los valores arriba fueron inferidos automáticamente — pueden estar incorrectos. Revisalos
-        abajo y usá <strong>Confirmar identificación</strong> antes de aprobar.
-      </p>
-    </section>
+        Ir a las líneas
+      </button>
+    </aside>
+
+    <RevisionStepNav
+      v-if="!fichaCerrada"
+      :steps="revisionSteps"
+      :active-step="revisionActiveStep"
+      @go="goRevisionStep"
+    />
 
     <div v-if="caso.estado === 'pendiente_calidad'" class="card alert-calidad">
       <p>Extracción automática no fue posible. Use <strong>carga manual</strong> de líneas (J.21).</p>
@@ -143,7 +117,65 @@
 
     <div class="revision-unified" :class="{ 'revision-unified--with-footer': !fichaCerrada }">
     <!-- Identificación -->
-    <section id="revision-identificacion" class="card revision-section">
+    <section
+      v-show="revisionActiveStep === 0 || fichaCerrada"
+      id="revision-identificacion"
+      class="card revision-section revision-ident-unified"
+      :class="{
+        'revision-ident-unified--ok': metaVerificado,
+        'revision-ident-unified--warn': !metaVerificado && metaCompleto,
+        'revision-ident-unified--err': !metaCompleto,
+      }"
+    >
+      <header
+        class="revision-ident-unified__head"
+        :class="{ 'revision-ident-unified__head--no-empresa': !empresaTitular }"
+      >
+        <div class="revision-ident-unified__head-left">
+          <h2>Identificación del expediente</h2>
+          <p class="revision-ident-unified__ref">
+            {{ metaReferenciaDisplay }}
+            <span v-if="caso.numero" class="revision-ident-unified__num">{{ caso.numero }}</span>
+          </p>
+          <p class="revision-ident-unified__doc" :title="documento.nombreOriginal">
+            <i class="fas fa-file-pdf" aria-hidden="true"></i>
+            {{ documento.nombreOriginal }}
+          </p>
+        </div>
+        <p v-if="empresaTitular" class="revision-empresa-titulo" :title="empresaTitular">
+          {{ empresaTitular }}
+        </p>
+        <span
+          v-if="!fichaCerrada"
+          class="meta-status revision-ident-unified__status"
+          :class="{
+            'meta-status--ok': metaVerificado,
+            'meta-status--warn': !metaVerificado && metaDirty && metaGuardadoSnapshot,
+            'meta-status--pending': !metaVerificado && !(metaDirty && metaGuardadoSnapshot),
+          }"
+        >
+          <i
+            :class="
+              metaVerificado
+                ? 'fas fa-circle-check'
+                : metaDirty && metaGuardadoSnapshot
+                  ? 'fas fa-pen'
+                  : 'fas fa-triangle-exclamation'
+            "
+            aria-hidden="true"
+          ></i>
+          {{
+            metaVerificado
+              ? "Verificado"
+              : metaDirty && metaGuardadoSnapshot
+                ? "Sin confirmar"
+                : "Pendiente"
+          }}
+        </span>
+      </header>
+      <p v-if="!metaVerificado && !fichaCerrada" class="revision-ident-unified__hint">
+        Datos inferidos del PDF — revisá los campos y confirmá antes de cerrar la revisión.
+      </p>
       <p v-if="metaCamposFaltantes.length" class="meta-missing-banner" role="alert">
         <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
         Completá o corregí los campos marcados en rojo:
@@ -174,10 +206,10 @@
             :class="{ 'input--error': metaEscala === 'indeterminada' }"
           >
             <option value="indeterminada">— Indeterminada (requiere corrección) —</option>
-            <option value="unidades">Unidades</option>
-            <option value="miles">Miles</option>
-            <option value="millones">Millones</option>
-          </select>
+          <option value="unidades">Unidades</option>
+          <option value="miles">Miles</option>
+          <option value="millones">Millones</option>
+        </select>
           <p class="meta-field__hint">Factor de escala leído del documento (miles, millones, etc.).</p>
         </div>
         <div
@@ -236,18 +268,6 @@
           <i v-if="metaReextrayendo" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
           {{ metaReextrayendo ? "Leyendo PDF…" : "Re-leer del PDF con IA" }}
         </button>
-        <button class="btn btn-ghost" type="button" @click="openReclasificarModal">
-          Reclasificar rubros y validar
-        </button>
-        <button
-          type="button"
-          class="meta-actions-info-btn"
-          aria-label="¿Qué botón usar?"
-          title="¿Qué botón usar?"
-          @click="metaAccionesGuideModalOpen = true"
-        >
-          <i class="fas fa-circle-info" aria-hidden="true"></i>
-        </button>
         <button
           v-if="consolidables.length || fichaHistorial.length"
           class="btn btn-ghost"
@@ -267,42 +287,125 @@
     </section>
 
     <!-- Líneas -->
-    <section id="revision-lineas" class="card revision-section">
+    <section
+      v-show="revisionActiveStep >= 1 || fichaCerrada"
+      id="revision-lineas"
+      class="card revision-section"
+      :class="{ 'revision-lineas--locked': !metaVerificado && !fichaCerrada }"
+    >
+      <div v-if="!metaVerificado && !fichaCerrada" class="revision-step-gate" role="status">
+        <i class="fas fa-lock" aria-hidden="true"></i>
+        Confirmá la identificación en el paso 1 para editar líneas y cuadratura.
+        <button class="btn btn-sm btn-primary" type="button" @click="goRevisionStep(0)">Ir a identificación</button>
+        </div>
+
+      <div
+        class="revision-lineas-layout"
+        :class="{ 'revision-lineas-layout--split': splitViewDoc && documento }"
+      >
+        <aside v-if="splitViewDoc && documento" class="revision-lineas-layout__doc">
+          <DocumentoOrigenModal
+            embedded
+            :model-value="true"
+            :document-url="docUrl"
+            :mime-type="documento.mimeType"
+            :initial-page="docModalLine?.paginaNumero"
+            :highlight-bbox="docModalLine?.bbox ?? null"
+            :highlight-page="docModalLine?.paginaNumero"
+            :line-label="docModalLine ? `${docModalLine.denominacionOriginal} · pág. ${docModalLine.paginaNumero}` : documento.nombreOriginal"
+          />
+        </aside>
+        <div class="revision-lineas-layout__main">
       <header class="revision-section__head revision-section__head--lineas">
         <div class="revision-section__head-main">
-          <div class="revision-section__head-row">
+          <div
+            class="revision-section__head-row revision-section__head-row--with-empresa"
+            :class="{ 'revision-section__head-row--no-empresa': !empresaTitular }"
+          >
             <h2>Líneas contables</h2>
+            <p v-if="empresaTitular" class="revision-empresa-titulo" :title="empresaTitular">
+              {{ empresaTitular }}
+            </p>
             <div v-if="!fichaCerrada" class="revision-section__head-actions">
               <button
-                v-if="lineasSinRubroIaCount > 0"
+                class="btn btn-ghost btn-sm"
+                type="button"
+                :title="splitViewDoc ? 'Ocultar panel PDF' : 'Mostrar PDF junto a las líneas'"
+                @click="splitViewDoc = !splitViewDoc"
+              >
+                <i :class="splitViewDoc ? 'fas fa-columns' : 'fas fa-table-columns'" aria-hidden="true"></i>
+                {{ splitViewDoc ? "Ocultar PDF" : "Vista dividida PDF" }}
+            </button>
+              <button
+                v-if="metaVerificado && lineasDuplicadasCount > 0"
+                class="btn btn-ghost btn-sm"
+                type="button"
+                :disabled="eliminarDuplicadosLoading"
+                :title="`Eliminar ${lineasDuplicadasCount} fila(s) duplicada(s) en ${lineasDuplicadosGrupos} grupo(s)`"
+                @click="onEliminarDuplicados"
+              >
+                <i class="fas fa-clone" aria-hidden="true"></i>
+                {{ eliminarDuplicadosLoading ? "Eliminando…" : "Eliminar duplicados" }}
+                <span class="revision-ia-masiva-btn__count">{{ lineasDuplicadasCount }}</span>
+            </button>
+              <button
+                v-if="metaVerificado"
                 class="btn btn-sm revision-ia-masiva-btn"
                 type="button"
-                :disabled="clasificacionIaMasivaLoading"
-                :title="clasificacionIaMasivaLoading ? 'Clasificando con IA…' : 'Clasificar todas las líneas sin rubro con IA (todas las secciones)'"
+                :disabled="clasificacionIaMasivaLoading || lineasDudosasIaCount === 0"
+                :title="
+                  clasificacionIaMasivaLoading
+                    ? 'Clasificando con IA…'
+                    : lineasDudosasIaCount === 0
+                      ? 'No hay líneas dudosas — revisá o corregí manualmente primero'
+                      : 'Clasificar líneas dudosas con IA (sin rubro y baja confianza)'
+                "
                 @click="openClasificacionIaConfirm"
               >
                 <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-                {{ clasificacionIaMasivaLoading ? "Clasificando…" : "Clasificar sin rubro con IA" }}
-                <span v-if="lineasSinRubroIaCount > 0 && !clasificacionIaMasivaLoading" class="revision-ia-masiva-btn__count">
-                  {{ lineasSinRubroIaCount }}
-                </span>
+                {{ clasificacionIaMasivaLoading ? "Clasificando…" : "Clasificar dudosas con IA" }}
+                <span v-if="lineasDudosasIaCount > 0 && !clasificacionIaMasivaLoading" class="revision-ia-masiva-btn__count">
+                  {{ lineasDudosasIaCount }}
+          </span>
               </button>
-              <button
+        <button
                 class="btn btn-primary btn-sm"
-                type="button"
+          type="button"
                 @click="openAgregarLineaModal"
-              >
+        >
                 <i class="fas fa-plus" aria-hidden="true"></i>
                 Agregar línea
-              </button>
+        </button>
             </div>
           </div>
+          <p v-if="metaVerificado && !fichaCerrada && !clasificacionIaMasivaLoading" class="revision-lineas-hint">
+            Revisá, agregá o eliminá filas a mano. La IA solo corre cuando pedís
+            <strong>Clasificar dudosas con IA</strong>.
+          </p>
         </div>
       </header>
+
+      <RevisionOrigenPanel v-if="lineas.length" :lineas="lineas" :open-by-default="false" />
+
+      <BalanceDiagnosticoPanel
+        v-if="lineas.length && metaVerificado"
+        :visible="true"
+        :open-by-default="!totalesBalanceRevision?.cuadraturaOk"
+        :loading="balanceAnalisisLoading"
+        :reconciliando="balanceReconciliarLoading"
+        :error="balanceAnalisisError"
+        :mensaje="balanceReconciliarMsg"
+        :analisis="balanceAnalisis"
+        :editable="!fichaCerrada"
+        @analizar="onAnalizarBalance"
+        @reconciliar="onReconciliarBalance"
+      />
+
       <RevisionSplitView
         unificado
         orden-por-plan
-        :allow-manual="!fichaCerrada"
+        :allow-manual="!fichaCerrada && metaVerificado"
+        :allow-delete="!fichaCerrada && metaVerificado"
         :caso-id="casoId"
         :lineas="lineas"
         :rubros="rubros"
@@ -312,101 +415,32 @@
         :total-lineas="caso.lineasCount ?? 0"
         :panel-msg="lineaPanelMsg"
         :panel-error="lineaPanelError"
+        :ia-clasificacion-activa="clasificacionIaMasivaLoading"
+        :ia-linea-en-curso-id="iaLineaEnCurso?.lineaId"
+        :ia-lineas-recientes-ids="iaLineasRecientesIds"
+        :lineas-impacto-cuadratura="lineasImpactoCuadratura"
+        :razon-social="empresaTitular"
         @reload="loadLineas"
         @patch-linea="onPatchLinea"
         @approve-linea="onApproveLinea"
+        @eliminar-linea="onEliminarLinea"
         @reclasificar-masiva="onReclasificarMasiva"
         @agregar-linea="openAgregarLineaModal"
         @ver-documento="openDocumentoModal()"
         @ver-documento-linea="openDocumentoModal"
         @draft-overrides-change="onDraftOverridesChange"
         @ia-aplicada="onIaAplicada"
+        @scroll-linea="scrollToLineaRevision"
       />
-    </section>
-
-    <!-- Cuadratura -->
-    <section
-      v-if="!fichaCerrada && totalesBalanceRevision"
-      class="card revision-section revision-cuadratura"
-      aria-live="polite"
-    >
-      <header class="revision-section__head">
-        <div>
-          <h2>Cuadratura del balance</h2>
-          <p>Verificación contable: Total Activo (1) = Total Pasivo (2) + Total Patrimonio (3).</p>
-          <p v-if="cuadraturaEnVistaPrevia" class="revision-cuadratura__preview">
-            Vista previa — los totales incluyen rubros o montos editados sin guardar (se actualizan en segundo plano).
-          </p>
         </div>
-      </header>
-      <div
-        class="revision-cuadratura__panel"
-        :class="
-          totalesBalanceRevision.cuadraturaOk
-            ? 'revision-cuadratura__panel--ok'
-            : 'revision-cuadratura__panel--fail'
-        "
-      >
-        <div class="revision-cuadratura__verdict">
-          <i
-            :class="
-              totalesBalanceRevision.cuadraturaOk
-                ? 'fas fa-circle-check'
-                : 'fas fa-circle-exclamation'
-            "
-            aria-hidden="true"
-          ></i>
-          <strong>
-            {{
-              totalesBalanceRevision.cuadraturaOk
-                ? "Cuadratura OK — 1 = 2 + 3"
-                : "Cuadratura NO cierra — 1 ≠ 2 + 3"
-            }}
-          </strong>
-        </div>
-        <div class="revision-cuadratura__formula" role="math">
-          <div class="revision-cuadratura__term">
-            <span class="revision-cuadratura__num">1</span>
-            <span class="revision-cuadratura__label">Activo</span>
-            <strong class="revision-cuadratura__monto">{{ formatMonto(totalesBalanceRevision.activo) }}</strong>
-          </div>
-          <span class="revision-cuadratura__op" aria-hidden="true">=</span>
-          <div class="revision-cuadratura__term">
-            <span class="revision-cuadratura__num">2</span>
-            <span class="revision-cuadratura__label">Pasivo</span>
-            <strong class="revision-cuadratura__monto">{{ formatMonto(totalesBalanceRevision.pasivo) }}</strong>
-          </div>
-          <span class="revision-cuadratura__op" aria-hidden="true">+</span>
-          <div class="revision-cuadratura__term">
-            <span class="revision-cuadratura__num">3</span>
-            <span class="revision-cuadratura__label">Patrimonio</span>
-            <strong class="revision-cuadratura__monto">{{ formatMonto(totalesBalanceRevision.patrimonio) }}</strong>
-          </div>
-          <span class="revision-cuadratura__op revision-cuadratura__op--eq" aria-hidden="true">=</span>
-          <div class="revision-cuadratura__term revision-cuadratura__term--sum">
-            <span class="revision-cuadratura__label">2 + 3</span>
-            <strong class="revision-cuadratura__monto">
-              {{ formatMonto(totalesBalanceRevision.pasivo + totalesBalanceRevision.patrimonio) }}
-            </strong>
-          </div>
-        </div>
-        <p v-if="!totalesBalanceRevision.cuadraturaOk" class="revision-cuadratura__hint">
-          Diferencia:
-          <strong>{{
-            formatMonto(
-              Math.abs(
-                totalesBalanceRevision.activo -
-                  (totalesBalanceRevision.pasivo + totalesBalanceRevision.patrimonio)
-              )
-            )
-          }}</strong>
-          — revisá rubros y montos en las líneas, o reconocé la alerta en Evaluar si es aceptable.
-        </p>
       </div>
     </section>
 
     <!-- Observaciones -->
-    <section v-if="!fichaCerrada" class="card revision-section revision-section--obs">
+    <section
+      v-if="!fichaCerrada && (revisionActiveStep >= 1 || fichaCerrada)"
+      class="card revision-section revision-section--obs"
+    >
       <label class="label" for="revision-observaciones">Observaciones del analista</label>
       <textarea
         id="revision-observaciones"
@@ -440,42 +474,18 @@
         </span>
       </div>
       <div class="revision-form-footer__actions">
-        <label
-          v-if="validacionesPendientes.length > 0 || lineasPendientesCount > 0"
-          class="revision-form-footer__override"
-        >
-          <input
-            v-model="aprobarIgnorarValidaciones"
-            type="checkbox"
-            :disabled="resolverPendientesLoading"
-            @change="onAprobarIgnorarChange"
-          />
-          <span>
-            {{
-              resolverPendientesLoading
-                ? "Resolviendo pendientes…"
-                : "Aprobar pendientes (líneas y validaciones) y continuar"
-            }}
-          </span>
-        </label>
-        <button class="btn btn-ghost" type="button" @click="openEvaluarModal">
-          <i class="fas fa-clipboard-check" aria-hidden="true"></i>
-          Evaluar
-          <span v-if="validacionesPendientes.length" class="revision-form-footer__badge">
-            {{ validacionesPendientes.length }}
-          </span>
-        </button>
         <button
           class="btn btn-primary"
           type="button"
-          :disabled="approving || caso.estado === 'informe_generado' || !aprobarListo"
-          :title="!aprobarListo ? aprobarListoMotivo || 'Completá los requisitos para aprobar la ficha' : undefined"
-          @click="openAprobarModal"
+          :disabled="approving || caso.estado === 'informe_generado' || resolverPendientesLoading"
+          @click="openCerrarRevisionModal"
         >
-          Revisar y aprobar ficha
+          {{
+            resolverPendientesLoading ? resolverPendientesEtapa || "Cerrando…" : "Cerrar revisión"
+          }}
         </button>
       </div>
-    </footer>
+      </footer>
 
     <footer v-else class="revision-form-footer revision-form-footer--closed">
       <button class="btn btn-primary" type="button" @click="openAprobarModal">
@@ -484,31 +494,146 @@
     </footer>
 
     <CreateFormModal
-      v-model="metaAccionesGuideModalOpen"
-      title="¿Qué botón usar?"
-      subtitle="Información del expediente"
+      v-if="accionesAvanzadasOpen && caso"
+      v-model="accionesAvanzadasOpen"
+      title="Acciones avanzadas"
+      :subtitle="caso.numero"
     >
-      <div class="modal-form revision-modal">
-        <ul class="revision-modal__list">
+      <div class="modal-form revision-modal acciones-avanzadas">
+        <p class="revision-modal__hint">Operaciones poco frecuentes — usalas solo si sabés qué hacen.</p>
+        <ul class="acciones-avanzadas__list">
           <li>
-            <strong>Confirmar identificación</strong> — cuando revisaste y corregiste los datos arriba. Es obligatorio
-            antes de aprobar la ficha.
+            <button class="btn btn-ghost acciones-avanzadas__btn" type="button" @click="accionAvanzadaEvaluar">
+              <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+              Evaluar validaciones
+              <span v-if="validacionesPendientes.length" class="revision-form-footer__badge">
+                {{ validacionesPendientes.length }}
+              </span>
+            </button>
+          </li>
+          <li v-if="caso.estado === 'en_revision'">
+            <button class="btn btn-ghost acciones-avanzadas__btn" type="button" @click="accionAvanzadaReprocesar">
+              <i class="fas fa-rotate-right" aria-hidden="true"></i>
+              Reprocesar documento
+            </button>
           </li>
           <li>
-            <strong>Re-leer del PDF con IA</strong> — solo si los datos inferidos están mal y querés que el sistema
-            vuelva a leer el documento. Después tenés que confirmar de nuevo.
+            <button class="btn btn-ghost acciones-avanzadas__btn" type="button" @click="accionAvanzadaReclasificar">
+              <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
+              Reclasificar rubros y validar
+            </button>
           </li>
-          <li>
-            <strong>Reclasificar rubros y validar</strong> — acción avanzada: recalcula rubros y validaciones sin
-            releer el PDF. Usala si cambiaste el plan de cuentas o la identificación y querés recomputar líneas.
+          <li v-if="showReinicioFojaCero">
+            <button
+              class="btn btn-ghost acciones-avanzadas__btn acciones-avanzadas__btn--danger"
+              type="button"
+              @click="accionAvanzadaReinicio"
+            >
+              <i class="fas fa-backward-step" aria-hidden="true"></i>
+              Reiniciar a foja cero
+            </button>
           </li>
         </ul>
-        <div class="modal-form__actions">
-          <button class="btn btn-primary" type="button" @click="metaAccionesGuideModalOpen = false">
-            Entendido
-          </button>
         </div>
+    </CreateFormModal>
+
+    <CreateFormModal
+      v-if="cerrarRevisionModalOpen && caso"
+      v-model="cerrarRevisionModalOpen"
+      title="Cerrar revisión"
+      :subtitle="`${caso.numero}${caso.referencia ? ` · ${caso.referencia}` : ''}`"
+    >
+      <div class="modal-form revision-modal">
+        <div class="revision-modal__box">
+          <h4>Estado actual</h4>
+          <ul class="revision-modal__list">
+            <li>
+              <strong>Identificación:</strong>
+              {{ metaVerificado ? "Confirmada" : "Pendiente — requerida para cerrar" }}
+        </li>
+            <li>
+              <strong>Líneas:</strong>
+              {{
+                lineasPendientesCount === 0
+                  ? "Todas revisadas"
+                  : `${lineasPendientesCount} pendiente(s)`
+              }}
+        </li>
+            <li>
+              <strong>Validaciones:</strong>
+              {{
+                validacionesPendientes.length === 0
+                  ? "OK"
+                  : `${validacionesPendientes.length} pendiente(s)`
+              }}
+            </li>
+            <li v-if="totalesBalanceRevision">
+              <strong>Cuadratura:</strong>
+              {{ totalesBalanceRevision.cuadraturaOk ? "OK (1 = 2 + 3)" : "No cierra" }}
+        </li>
+      </ul>
+        </div>
+
+        <template v-if="aprobarListo">
+          <p class="revision-modal__ok-hint">
+            <i class="fas fa-circle-check" aria-hidden="true"></i>
+            Todo en orden — podés cerrar con ficha completa.
+          </p>
+        </template>
+
+        <template v-else>
+          <p class="revision-modal__lead">
+            Aún hay pendientes. Podés <strong>cerrar con observaciones</strong> y generar la ficha con lo revisado
+            hasta acá.
+          </p>
+          <div class="revision-modal__box revision-modal__box--muted">
+            <label class="label" for="motivo-cierre-parcial">Motivo del cierre (obligatorio)</label>
+            <textarea
+              id="motivo-cierre-parcial"
+              v-model="motivoCierreParcial"
+              class="input obs"
+              rows="2"
+              placeholder="Ej.: plazo de comité, documento incompleto, cuadratura no prioritaria…"
+            />
+            <label class="cerrar-parcial-check">
+              <input v-model="cierreParcialAceptaIdentificacion" type="checkbox" />
+              Confirmo que revisé la identificación del expediente
+            </label>
+            <label class="cerrar-parcial-check">
+              <input v-model="cierreParcialAceptaPendientes" type="checkbox" />
+              Acepto cerrar con líneas, validaciones o cuadratura pendientes
+            </label>
+          </div>
+          <div class="revision-modal__warn">
+            Quedará registrado como <strong>cierre parcial</strong> en la ficha y el informe.
+          </div>
+        </template>
+
+        <p v-if="cerrarRevisionError" class="error-msg">{{ cerrarRevisionError }}</p>
       </div>
+      <template #footer>
+        <button class="btn btn-ghost" type="button" @click="cerrarRevisionModalOpen = false">
+          Cancelar
+        </button>
+        <button
+          v-if="aprobarListo"
+          class="btn btn-primary"
+          type="button"
+          :disabled="approving"
+          @click="proceedCierreCompleto"
+        >
+          Cerrar con ficha completa
+        </button>
+        <button
+          v-else
+          class="btn btn-primary"
+          type="button"
+          :disabled="!cierreParcialFormValido || resolverPendientesLoading || approving"
+          @click="confirmCierreParcial"
+        >
+          {{ resolverPendientesLoading ? "Cerrando…" : "Cerrar con observaciones" }}
+        </button>
+      </template>
     </CreateFormModal>
 
     <CreateFormModal
@@ -825,7 +950,7 @@
     <CreateFormModal
       v-if="aprobarModalOpen && caso"
       v-model="aprobarModalOpen"
-      title="Confirmar aprobación de ficha"
+      title="Confirmar cierre de revisión"
       :subtitle="`${caso.numero} · v${caso.version ?? 0} → v${(caso.version ?? 0) + 1}`"
     >
       <div class="modal-form revision-modal">
@@ -906,7 +1031,7 @@
             :disabled="approving || !aprobacionCheck?.ok"
             @click="confirmAprobarFicha"
           >
-            {{ approving ? "Aprobando ficha…" : "Sí, aprobar ficha canónica" }}
+            {{ approving ? "Cerrando revisión…" : "Sí, cerrar y generar ficha" }}
           </button>
         </div>
       </div>
@@ -974,38 +1099,41 @@
     <CreateFormModal
       v-if="clasificacionIaConfirmOpen && caso"
       v-model="clasificacionIaConfirmOpen"
-      title="Clasificar líneas sin rubro con IA"
+      title="Clasificar líneas dudosas con IA"
       :subtitle="`${caso.numero}${caso.referencia ? ` · ${caso.referencia}` : ''}`"
     >
       <div class="modal-form revision-modal">
         <p class="revision-modal__lead">
-          La IA va a proponer rubro para
-          <strong>{{ lineasSinRubroIaCount }} línea(s) sin rubro institucional</strong>
-          — en todo el balance (Activo, Pasivo y Patrimonio), no solo el bloque «Sin rubro / otros» de la lista.
+          El sistema va a clasificar con IA
+          <strong>{{ lineasDudosasIaCount }} línea(s) dudosa(s)</strong>
+          (sin rubro asignado o con baja confianza).
         </p>
-        <div v-if="lineasConRubroPendienteCount > 0" class="revision-modal__box revision-modal__box--muted">
-          <h4>Fuera de este proceso ({{ lineasPendientesCount }} pendiente(s) en total)</h4>
-          <p class="revision-modal__hint" style="margin: 0">
-            <strong>{{ lineasConRubroPendienteCount }} línea(s)</strong> ya tienen rubro y solo esperan tu aprobación
-            manual — la IA <strong>no las toca</strong>. Solo entran las {{ lineasSinRubroIaCount }} sin rubro.
-          </p>
-        </div>
         <div class="revision-modal__box">
           <h4>Qué va a pasar</h4>
           <ul class="revision-modal__list">
             <li>
-              Se recorren <strong>las {{ lineasSinRubroIaCount }} filas sin rubro</strong>, una por una, en orden de
-              página del PDF.
+              <strong>Lote 1 — sin rubro ({{ lineasSinRubroIaCount }}):</strong> la IA propone rubro del plan de
+              cuentas.
             </li>
-            <li>Para cada una, la IA elige un rubro del plan (Activo, Pasivo o Patrimonio según corresponda).</li>
-            <li>Al terminar, las filas pasan a su sección numerada (1 · 2 · 3) en la lista — dejan de estar juntas en
-              «Sin rubro / otros».</li>
-            <li>Se actualizan rubro, confianza y motivo de la sugerencia; <strong>no se aprueban solas</strong>.</li>
+            <li v-if="lineasBajaConfianzaIaCount > 0">
+              <strong>Lote 2 — baja confianza ({{ lineasBajaConfianzaIaCount }}):</strong> la IA revisa y puede
+              reasignar el rubro sugerido.
+            </li>
+            <li>Se guardan rubro, confianza y explicación de la IA en la base de datos (línea por línea).</li>
+            <li>Cada línea clasificada por IA pasa a <strong>verde (OK)</strong> — la decisión queda firme, no pendiente de aprobación.</li>
+            <li>Si se interrumpe el proceso, al reanudar <strong>no se reprocesan</strong> las líneas ya clasificadas.</li>
+            <li>Podés corregir manualmente cualquier línea verde si no estás de acuerdo con la IA.</li>
           </ul>
         </div>
+        <div v-if="lineasConRubroPendienteCount > 0" class="revision-modal__box revision-modal__box--muted">
+          <p class="revision-modal__hint" style="margin: 0">
+            <strong>{{ lineasConRubroPendienteCount }} línea(s)</strong> clasificadas por el pipeline (no por IA de
+            revisión) siguen pendientes de tu confirmación manual.
+          </p>
+        </div>
         <div class="revision-modal__warn">
-          <strong>Tené en cuenta:</strong> con {{ lineasSinRubroIaCount }} líneas puede tardar varios minutos. No
-          cierres esta pantalla hasta ver el mensaje de fin; vas a ver el avance «línea X de {{ lineasSinRubroIaCount }}».
+          <strong>Tené en cuenta:</strong> la IA solo se ejecuta cuando confirmás acá — no arranca sola al entrar.
+          Puede tardar varios segundos por línea; no cierres esta pantalla hasta que termine.
         </div>
       </div>
       <template #footer>
@@ -1019,26 +1147,6 @@
       </template>
     </CreateFormModal>
 
-    <CreateFormModal
-      v-if="clasificacionIaTrabajandoOpen"
-      v-model="clasificacionIaTrabajandoOpen"
-      persistent
-      title="Clasificando con IA"
-      subtitle="Trabajando en las líneas dudosas…"
-    >
-      <div class="revision-ia-trabajando">
-        <div class="revision-ia-trabajando__spinner" aria-hidden="true">
-          <i class="fas fa-wand-magic-sparkles fa-spin"></i>
-        </div>
-        <p class="revision-ia-trabajando__title">Trabajando en la clasificación</p>
-        <p class="revision-ia-trabajando__etapa">{{ clasificacionIaTrabajandoEtapa }}</p>
-        <p class="revision-ia-trabajando__hint">
-          Clasificando <strong>{{ lineasSinRubroIaCount }} línea(s) sin rubro</strong> en Activo, Pasivo y Patrimonio.
-          La pantalla se actualizará sola al terminar.
-        </p>
-      </div>
-    </CreateFormModal>
-
     <ExtraccionIaModal
       v-model="extraccionIaOpen"
       :caso-id="casoId"
@@ -1048,13 +1156,19 @@
     <CreateFormModal
       v-if="aprobarSuccessOpen && caso"
       v-model="aprobarSuccessOpen"
-      title="Ficha aprobada"
+      :title="ultimoCierreParcial ? 'Revisión cerrada con observaciones' : 'Revisión cerrada'"
       :subtitle="caso.numero"
     >
       <div class="modal-form revision-modal">
         <p class="revision-modal__success">
+          <template v-if="ultimoCierreParcial">
+            La ficha <strong>v{{ aprobarResultVersion }}</strong> quedó cerrada con observaciones. Podés generar el
+            informe con las limitaciones registradas.
+          </template>
+          <template v-else>
           La ficha canónica <strong>v{{ aprobarResultVersion }}</strong> quedó aprobada. El caso está listo para el
           informe de comité.
+          </template>
         </p>
         <div class="revision-modal__box">
           <h4>Próximos pasos</h4>
@@ -1078,23 +1192,36 @@
 
 <script setup lang="ts">
 import type {
+  ClasificacionIaLineaEventoDto,
+  ClasificacionIaProgresoDto,
   FichaHistorialDto,
   LineaContableDto,
   RubroOptionDto,
   ValidacionResultadoDto,
 } from "@ffa/shared";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import type { ProvenanceCasoDto } from "@ffa/shared";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { api, type CasoDetalleDto } from "../api/client";
 import CreateFormModal from "../components/CreateFormModal.vue";
 import DocumentoOrigenModal from "../components/DocumentoOrigenModal.vue";
 import ExtraccionIaModal from "../components/ExtraccionIaModal.vue";
+import BalanceDiagnosticoPanel from "../components/BalanceDiagnosticoPanel.vue";
+import ProvenanceFallbackBanner from "../components/ProvenanceFallbackBanner.vue";
 import RevisionSplitView from "../components/RevisionSplitView.vue";
+import RevisionStepNav from "../components/RevisionStepNav.vue";
+import RevisionOrigenPanel from "../components/RevisionOrigenPanel.vue";
 import PageHeader from "../components/PageHeader.vue";
 import SemaforoIndicator from "../components/SemaforoIndicator.vue";
 import { useCloseOnRouteLeave } from "../composables/useCloseOnRouteLeave";
 import { MONEDAS_OPCIONES, monedaLabel } from "../constants/monedas";
 import { calcularTotalesBalance, type LineaDraftOverride } from "../utils/balanceTotales";
+import {
+  analizarDuplicadosLineas,
+  colapsarDuplicadosLineas,
+  lineaDuplicadoKey,
+} from "../utils/linea-duplicados";
+import { calcularLineasImpactoCuadratura } from "../utils/revisionResumen";
 import { apiErrorMessage } from "../utils/apiError";
 import { formatMonto, parseMontoInput } from "../utils/formatMonto";
 import { puedeReiniciarFojaCero } from "../utils/casoAcciones";
@@ -1106,6 +1233,7 @@ const casoId = route.params.id as string;
 const loading = ref(true);
 const error = ref<string | null>(null);
 const caso = ref<CasoDetalleDto | null>(null);
+const provenanceCaso = ref<ProvenanceCasoDto | null>(null);
 const documento = ref<CasoDetalleDto["documentos"][0] | null>(null);
 const lineas = ref<LineaContableDto[]>([]);
 const rubros = ref<RubroOptionDto[]>([]);
@@ -1145,8 +1273,21 @@ const aprobarResultVersion = ref(0);
 const aprobacionCheck = ref<{ ok: boolean; motivos: string[] } | null>(null);
 const aprobacionBlockers = ref<string[]>([]);
 const lineasPendientesCount = ref(0);
+const lineasDudosasIaCount = ref(0);
+const eliminarDuplicadosLoading = ref(false);
+const balanceAnalisisLoading = ref(false);
+const balanceReconciliarLoading = ref(false);
+const balanceAnalisisError = ref<string | null>(null);
+const balanceReconciliarMsg = ref<string | null>(null);
+const balanceAnalisis = ref<import("@ffa/shared").BalanceAnalisisDto | null>(null);
+
+const analisisDuplicadosLineas = computed(() => analizarDuplicadosLineas(lineas.value));
+const lineasDuplicadasCount = computed(() => analisisDuplicadosLineas.value.duplicadasCount);
+const lineasDuplicadosGrupos = computed(() => analisisDuplicadosLineas.value.gruposCount);
 const lineasSinRubroIaCount = ref(0);
+const lineasBajaConfianzaIaCount = ref(0);
 const lineasConRubroPendienteCount = ref(0);
+const umbralConfianza = ref(85);
 const agregarLineaModalOpen = ref(false);
 const agregarLineaSaving = ref(false);
 const agregarLineaError = ref("");
@@ -1164,7 +1305,14 @@ const reinicioMotivo = ref("");
 const reinicioSaving = ref(false);
 const reinicioError = ref("");
 const reclasificarModalOpen = ref(false);
-const metaAccionesGuideModalOpen = ref(false);
+const accionesAvanzadasOpen = ref(false);
+const cerrarRevisionModalOpen = ref(false);
+const motivoCierreParcial = ref("");
+const cierreParcialAceptaIdentificacion = ref(false);
+const cierreParcialAceptaPendientes = ref(false);
+const cerrarRevisionError = ref("");
+const pendingCierreParcial = ref(false);
+const ultimoCierreParcial = ref(false);
 const historialModalOpen = ref(false);
 const reclasificarSaving = ref(false);
 const reclasificarDone = ref(false);
@@ -1172,25 +1320,64 @@ const reclasificarError = ref("");
 const extraccionIaOpen = ref(false);
 const clasificacionIaMasivaLoading = ref(false);
 const clasificacionIaConfirmOpen = ref(false);
-const clasificacionIaTrabajandoOpen = ref(false);
 const clasificacionIaTrabajandoEtapa = ref("");
-const ETAPAS_CLASIFICACION_IA = [
-  "Revisando líneas marcadas como dudosas",
-  "Comparando denominaciones con el plan de cuentas",
-  "Solicitando rubro sugerido a la IA",
-  "Aplicando clasificación en cada línea",
-] as const;
-let clasificacionIaEtapaTimer: ReturnType<typeof setInterval> | null = null;
+const clasificacionIaProgresoActual = ref(0);
+const clasificacionIaProgresoTotal = ref(0);
+const iaLineaEnCurso = ref<ClasificacionIaLineaEventoDto | null>(null);
+const iaUltimasLineas = ref<ClasificacionIaLineaEventoDto[]>([]);
+const iaLineasRecientesIds = ref<string[]>([]);
+const iaPollUltimoProcesadas = ref(0);
+let iaPollTimer: ReturnType<typeof setInterval> | null = null;
 const resolverPendientesLoading = ref(false);
+const resolverPendientesEtapa = ref("");
 let isMounted = false;
 
 const lineDraftOverrides = ref<Record<string, LineaDraftOverride>>({});
+const revisionActiveStep = ref(0);
+const splitViewDoc = ref(false);
 
 const totalesBalanceRevision = computed(() =>
   lineas.value.length && rubros.value.length
-    ? calcularTotalesBalance(lineas.value, rubros.value, lineDraftOverrides.value)
+    ? calcularTotalesBalance(
+        colapsarDuplicadosLineas(lineas.value).lineasVisibles,
+        rubros.value,
+        lineDraftOverrides.value
+      )
     : null
 );
+
+const lineasImpactoCuadratura = computed(() =>
+  lineas.value.length && rubros.value.length
+    ? calcularLineasImpactoCuadratura(
+        colapsarDuplicadosLineas(lineas.value).lineasVisibles,
+        rubros.value,
+        lineDraftOverrides.value
+      )
+    : []
+);
+
+const revisionSteps = computed(() => [
+  {
+    id: "ident",
+    title: "Identificación",
+    done: metaVerificado.value,
+    hint: !metaCompleto.value ? "Incompleto" : metaVerificado.value ? undefined : "Sin confirmar",
+  },
+  {
+    id: "lineas",
+    title: "Líneas y cuadratura",
+    done:
+      metaVerificado.value &&
+      lineasPendientesCount.value === 0 &&
+      Boolean(totalesBalanceRevision.value?.cuadraturaOk),
+    hint:
+      metaVerificado.value && lineasPendientesCount.value > 0
+        ? `${lineasPendientesCount.value} pendiente(s)`
+        : metaVerificado.value && totalesBalanceRevision.value && !totalesBalanceRevision.value.cuadraturaOk
+          ? "Cuadratura ≠"
+          : undefined,
+  },
+]);
 
 const cuadraturaEnVistaPrevia = computed(() => Object.keys(lineDraftOverrides.value).length > 0);
 
@@ -1249,6 +1436,8 @@ const metaDirty = computed(() => buildMetaSnapshot() !== metaGuardadoSnapshot.va
 const metaReferenciaDisplay = computed(
   () => caso.value?.referencia?.trim() || caso.value?.numero || "Sin referencia"
 );
+
+const empresaTitular = computed(() => metaRazonSocial.value.trim());
 
 const metaCompleto = computed(
   () =>
@@ -1375,13 +1564,63 @@ function esMotivoIgnorableAlForzar(motivo: string): boolean {
     esMotivoValidacion(motivo) ||
     m.includes("línea") ||
     m.includes("linea") ||
+    m.includes("rubro") ||
     m.includes("pendiente de revisión") ||
-    m.includes("pendientes de revisión")
+    m.includes("pendientes de revisión") ||
+    m.includes("cuadratura")
   );
+}
+
+const cierreParcialFormValido = computed(
+  () =>
+    metaVerificado.value &&
+    motivoCierreParcial.value.trim().length >= 8 &&
+    cierreParcialAceptaIdentificacion.value &&
+    cierreParcialAceptaPendientes.value
+);
+
+function resetCierreParcialForm(): void {
+  motivoCierreParcial.value = "";
+  cierreParcialAceptaIdentificacion.value = false;
+  cierreParcialAceptaPendientes.value = false;
+  cerrarRevisionError.value = "";
+  pendingCierreParcial.value = false;
 }
 
 function scrollToIdentificacion(): void {
   document.getElementById("revision-identificacion")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openCerrarRevisionModal(): void {
+  resetCierreParcialForm();
+  cerrarRevisionModalOpen.value = true;
+}
+
+function proceedCierreCompleto(): void {
+  cerrarRevisionModalOpen.value = false;
+  aprobarIgnorarValidaciones.value = false;
+  pendingCierreParcial.value = false;
+  void openAprobarModal();
+}
+
+function accionAvanzadaEvaluar(): void {
+  accionesAvanzadasOpen.value = false;
+  void openEvaluarModal();
+}
+
+function accionAvanzadaReprocesar(): void {
+  accionesAvanzadasOpen.value = false;
+  void onReprocesar();
+}
+
+function accionAvanzadaReclasificar(): void {
+  accionesAvanzadasOpen.value = false;
+  openReclasificarModal();
+}
+
+function accionAvanzadaReinicio(): void {
+  accionesAvanzadasOpen.value = false;
+  openReinicioModal();
 }
 
 async function openEvaluarModal(): Promise<void> {
@@ -1408,43 +1647,44 @@ async function refreshAprobacionBlockers(): Promise<void> {
   }
 }
 
-async function onAprobarIgnorarChange(event: Event): Promise<void> {
-  const checked = (event.target as HTMLInputElement).checked;
-  if (!checked) {
-    aprobacionOkConIgnorar.value = false;
-    await refreshAprobacionBlockers();
-    return;
-  }
+async function confirmCierreParcial(): Promise<void> {
+  if (!cierreParcialFormValido.value || !caso.value) return;
+  cerrarRevisionError.value = "";
+  aprobarIgnorarValidaciones.value = true;
+  pendingCierreParcial.value = true;
 
   resolverPendientesLoading.value = true;
-  lineaPanelMsg.value = "";
-  lineaPanelError.value = "";
+  resolverPendientesEtapa.value = "Preparando cierre parcial…";
+  approving.value = true;
   try {
-    const res = await api.resolverPendientesRevision(casoId);
-    await refreshCaso();
-    await loadLineas(false);
-    await refreshLineasPendientes();
-    aprobarIgnorarValidaciones.value = true;
-    await refreshAprobacionBlockers();
+    resolverPendientesEtapa.value = "Resolviendo pendientes…";
+    await api.resolverPendientesRevision(casoId);
 
-    const partes: string[] = [];
-    if (res.lineasAprobadas > 0) partes.push(`${res.lineasAprobadas} línea(s) aprobada(s)`);
-    if (res.validacionesConfirmadas > 0) {
-      partes.push(`${res.validacionesConfirmadas} validación(es) confirmada(s)`);
-    }
-    if (res.lineasSinRubro > 0) {
-      partes.push(`${res.lineasSinRubro} línea(s) sin rubro — asigná rubro antes de aprobar la ficha`);
-    }
-    lineaPanelMsg.value = partes.length
-      ? partes.join(" · ")
-      : "Pendientes resueltos — podés revisar y aprobar la ficha";
+    resolverPendientesEtapa.value = "Generando ficha…";
+    const motivo = motivoCierreParcial.value.trim();
+    const ficha = await api.aprobarFicha(casoId, {
+      version: caso.value.version ?? 0,
+      observaciones: observaciones.value || undefined,
+      ignorarValidacionesPendientes: true,
+      cierreParcial: true,
+      motivoCierreParcial: motivo,
+    });
+
+    aprobarResultVersion.value = ficha.version;
+    ultimoCierreParcial.value = true;
+    cerrarRevisionModalOpen.value = false;
+    aprobarSuccessOpen.value = true;
+    resetCierreParcialForm();
+    await refreshCaso();
   } catch (e) {
     aprobarIgnorarValidaciones.value = false;
-    aprobacionOkConIgnorar.value = false;
-    lineaPanelError.value = apiErrorMessage(e, "No se pudieron resolver los pendientes");
-    await refreshAprobacionBlockers();
+    pendingCierreParcial.value = false;
+    ultimoCierreParcial.value = false;
+    cerrarRevisionError.value = apiErrorMessage(e, "No se pudo cerrar la revisión");
   } finally {
     resolverPendientesLoading.value = false;
+    resolverPendientesEtapa.value = "";
+    approving.value = false;
   }
 }
 
@@ -1570,7 +1810,8 @@ useCloseOnRouteLeave(evaluarModalOpen);
 useCloseOnRouteLeave(aprobarModalOpen);
 useCloseOnRouteLeave(aprobarSuccessOpen);
 useCloseOnRouteLeave(reclasificarModalOpen);
-useCloseOnRouteLeave(metaAccionesGuideModalOpen);
+useCloseOnRouteLeave(accionesAvanzadasOpen);
+useCloseOnRouteLeave(cerrarRevisionModalOpen);
 useCloseOnRouteLeave(historialModalOpen);
 useCloseOnRouteLeave(reinicioModalOpen);
 useCloseOnRouteLeave(extraccionIaOpen);
@@ -1672,15 +1913,37 @@ async function submitValModal(): Promise<void> {
   }
 }
 
+function lineaYaProcesadaPorIa(l: LineaContableDto): boolean {
+  return Boolean(l.clasificacionIaAt) || l.origenClasificacion === "ia_revision";
+}
+
+function lineaDudosaParaIa(l: LineaContableDto): boolean {
+  if (l.excluirDeCuadratura) return false;
+  if (!l.requiereRevision || l.estado === "aprobada") return false;
+  if (lineaYaProcesadaPorIa(l)) return false;
+  if (!l.rubroInstitucionalId) return true;
+  return (l.confianzaClasificacion ?? 0) < umbralConfianza.value;
+}
+
 function lineaSinRubroParaIa(l: LineaContableDto): boolean {
-  return l.requiereRevision && l.estado !== "aprobada" && !l.rubroInstitucionalId;
+  return lineaDudosaParaIa(l) && !l.rubroInstitucionalId;
+}
+
+function lineaBajaConfianzaParaIa(l: LineaContableDto): boolean {
+  return lineaDudosaParaIa(l) && Boolean(l.rubroInstitucionalId);
 }
 
 function actualizarConteosLineasIa(pending: LineaContableDto[]): void {
   lineasPendientesCount.value = pending.length;
   lineasSinRubroIaCount.value = pending.filter(lineaSinRubroParaIa).length;
+  lineasBajaConfianzaIaCount.value = pending.filter(lineaBajaConfianzaParaIa).length;
+  lineasDudosasIaCount.value = pending.filter(lineaDudosaParaIa).length;
   lineasConRubroPendienteCount.value = pending.filter(
-    (l) => l.requiereRevision && l.estado !== "aprobada" && Boolean(l.rubroInstitucionalId)
+    (l) =>
+      l.requiereRevision &&
+      l.estado !== "aprobada" &&
+      Boolean(l.rubroInstitucionalId) &&
+      !lineaBajaConfianzaParaIa(l)
   ).length;
 }
 
@@ -1690,7 +1953,9 @@ async function refreshLineasPendientes(): Promise<void> {
     actualizarConteosLineasIa(pending);
   } catch {
     lineasPendientesCount.value = 0;
+    lineasDudosasIaCount.value = 0;
     lineasSinRubroIaCount.value = 0;
+    lineasBajaConfianzaIaCount.value = 0;
     lineasConRubroPendienteCount.value = 0;
   }
 }
@@ -1750,14 +2015,19 @@ async function confirmAprobarFicha(): Promise<void> {
   approving.value = true;
   aprobarModalError.value = "";
   try {
+    const esParcial = pendingCierreParcial.value;
     const ficha = await api.aprobarFicha(casoId, {
       version: caso.value.version ?? 0,
       observaciones: observaciones.value || undefined,
       ignorarValidacionesPendientes: aprobarIgnorarValidaciones.value || undefined,
+      cierreParcial: esParcial || undefined,
+      motivoCierreParcial: esParcial ? motivoCierreParcial.value.trim() : undefined,
     });
     aprobarResultVersion.value = ficha.version;
+    ultimoCierreParcial.value = esParcial;
     aprobarModalOpen.value = false;
     aprobarSuccessOpen.value = true;
+    pendingCierreParcial.value = false;
     await refreshCaso();
   } catch (e) {
     aprobarModalError.value = apiErrorMessage(e, "No se pudo aprobar la ficha");
@@ -1825,8 +2095,18 @@ async function confirmAgregarLinea(): Promise<void> {
   }
 }
 
+async function loadProvenanceCaso(): Promise<void> {
+  try {
+    const resumen = await api.getCasoConfianzaResumen(casoId);
+    provenanceCaso.value = resumen.provenance ?? null;
+  } catch {
+    provenanceCaso.value = null;
+  }
+}
+
 async function refreshCaso(): Promise<void> {
   caso.value = await api.getCaso(casoId);
+  void loadProvenanceCaso();
   validaciones.value = caso.value.validaciones ?? [];
   observaciones.value = caso.value.observaciones ?? "";
   metaMoneda.value = caso.value.moneda ?? "";
@@ -1842,11 +2122,19 @@ async function refreshCaso(): Promise<void> {
   const rutResuelto = identidad?.rut && identidad.rut !== "—" ? identidad.rut : "";
   metaRut.value = rutResuelto || doc?.extractMetadata?.rut || caso.value.contribuyente?.rut || "";
 
-  if (caso.value.metadatosVerificados) {
-    metaGuardadoSnapshot.value = buildMetaSnapshot();
-    metaConfirmado.value = true;
-  } else {
-    metaConfirmado.value = false;
+  /* La confirmación es explícita por sesión — no restaurar desde auditoría al recargar. */
+}
+
+function goRevisionStep(index: number): void {
+  if (index === 1 && !metaVerificado.value && !fichaCerrada.value) {
+    metaStepError.value = "Confirmá la identificación antes de revisar líneas";
+    scrollToIdentificacion();
+    return;
+  }
+  metaStepError.value = "";
+  revisionActiveStep.value = index;
+  if (index === 0) {
+    scrollToIdentificacion();
   }
 }
 
@@ -1867,11 +2155,7 @@ async function reextraerMetadatosIa(): Promise<void> {
   }
 }
 
-async function guardarMetadatos(): Promise<void> {
-  metaSaving.value = true;
-  metaStepMsg.value = "";
-  metaStepError.value = "";
-  try {
+async function confirmarIdentificacionMetadatos(): Promise<void> {
     await api.patchCasoMetadatos(casoId, {
       moneda: metaMoneda.value || undefined,
       escala: metaEscala.value,
@@ -1880,10 +2164,20 @@ async function guardarMetadatos(): Promise<void> {
       rut: metaRut.value || undefined,
     });
     await refreshCaso();
-    await loadLineas(false);
-    metaGuardadoSnapshot.value = buildMetaSnapshot();
-    metaConfirmado.value = true;
-    metaStepMsg.value = "Identificación confirmada — validaciones recalculadas";
+  await loadLineas(false);
+  metaGuardadoSnapshot.value = buildMetaSnapshot();
+  metaConfirmado.value = true;
+}
+
+async function guardarMetadatos(): Promise<void> {
+  metaSaving.value = true;
+  metaStepMsg.value = "";
+  metaStepError.value = "";
+  try {
+    await confirmarIdentificacionMetadatos();
+    revisionActiveStep.value = 1;
+    metaStepMsg.value =
+      "Identificación confirmada — revisá las líneas y usá «Clasificar dudosas con IA» cuando quieras ayuda";
   } catch (e) {
     metaStepError.value = e instanceof Error ? e.message : "Error al guardar la identificación";
   } finally {
@@ -1926,6 +2220,7 @@ async function init(): Promise<void> {
   try {
     const cfg = await api.getConfig().catch(() => null);
     extractionProvider.value = cfg?.extractionProvider ?? "mock";
+    umbralConfianza.value = cfg?.umbralConfianza ?? 85;
     await refreshCaso();
     if (!isMounted) return;
     documento.value = caso.value?.documentos?.[0] ?? null;
@@ -1939,7 +2234,13 @@ async function init(): Promise<void> {
     consolidables.value = await api.getCasosConsolidables(casoId).catch(() => []);
     if (!isMounted) return;
     await loadLineas(false);
-    if (isMounted) await refreshAprobacionBlockers();
+    if (isMounted) {
+      revisionActiveStep.value = 0;
+      metaConfirmado.value = false;
+      metaGuardadoSnapshot.value = "";
+      await refreshAprobacionBlockers();
+      await syncClasificacionIaAlEntrar();
+    }
   } catch (e) {
     if (!isMounted) return;
     error.value = e instanceof Error ? e.message : "Error al cargar";
@@ -1977,58 +2278,301 @@ async function onIaAplicada(): Promise<void> {
 async function openClasificacionIaConfirm(): Promise<void> {
   if (clasificacionIaMasivaLoading.value) return;
   await refreshLineasPendientes();
-  if (lineasSinRubroIaCount.value === 0) {
+  if (lineasDudosasIaCount.value === 0) {
     lineaPanelMsg.value =
       lineasConRubroPendienteCount.value > 0
-        ? "No hay líneas sin rubro — las pendientes ya tienen rubro y solo necesitan tu aprobación"
+        ? "No hay líneas dudosas para IA — las pendientes tienen rubro con confianza suficiente"
         : "No hay líneas pendientes para clasificar con IA";
     return;
   }
   clasificacionIaConfirmOpen.value = true;
 }
 
-function startClasificacionIaEtapaTimer(): void {
-  let idx = 0;
-  clasificacionIaTrabajandoEtapa.value = ETAPAS_CLASIFICACION_IA[0];
-  clasificacionIaEtapaTimer = setInterval(() => {
-    idx = (idx + 1) % ETAPAS_CLASIFICACION_IA.length;
-    clasificacionIaTrabajandoEtapa.value = ETAPAS_CLASIFICACION_IA[idx];
-  }, 2800);
+function truncarDenominacion(texto: string, max = 52): string {
+  const t = texto.trim();
+  return t.length <= max ? t : `${t.slice(0, max)}…`;
 }
 
-function stopClasificacionIaEtapaTimer(): void {
-  if (clasificacionIaEtapaTimer) {
-    clearInterval(clasificacionIaEtapaTimer);
-    clasificacionIaEtapaTimer = null;
+function scrollToLineaRevision(lineaId: string): void {
+  void nextTick(() => {
+    document.getElementById(`revision-linea-${lineaId}`)?.scrollIntoView({ block: "center" });
+  });
+}
+
+function aplicarProgresoClasificacionIaDesdeApi(p: ClasificacionIaProgresoDto): string | null {
+  clasificacionIaProgresoTotal.value = p.total;
+  clasificacionIaProgresoActual.value = p.procesadas;
+  clasificacionIaTrabajandoEtapa.value =
+    p.mensaje ??
+    (p.lote === "sin_rubro"
+      ? "Sin rubro"
+      : p.lote === "baja_confianza"
+        ? "Baja confianza"
+        : "Clasificando con IA…");
+  iaLineaEnCurso.value = p.lineaEnCurso ?? null;
+  if (p.ultimasLineas?.length) {
+    iaUltimasLineas.value = p.ultimasLineas;
+    iaLineasRecientesIds.value = p.ultimasLineas
+      .filter((e) => e.estado === "ok")
+      .map((e) => e.lineaId)
+      .slice(0, 20);
+  }
+  const cursoId = p.lineaEnCurso?.lineaId ?? p.lineaId ?? null;
+  return cursoId;
+}
+
+function stopIaPollTimer(): void {
+  if (iaPollTimer) {
+    clearInterval(iaPollTimer);
+    iaPollTimer = null;
+  }
+}
+
+function startIaPollTimer(onTick?: (actual: number, total: number, etapa: string) => void): void {
+  stopIaPollTimer();
+  iaPollTimer = setInterval(() => {
+    void tickClasificacionIaPoll(onTick).catch(() => {});
+  }, 450);
+}
+
+async function onClasificacionIaTerminada(p: ClasificacionIaProgresoDto): Promise<void> {
+  stopIaPollTimer();
+  clasificacionIaMasivaLoading.value = false;
+  await refreshCaso();
+  await loadLineas(false);
+  await refreshLineasPendientes();
+  await refreshAprobacionBlockers();
+  if (p.estado === "completado" && (p.actualizadas ?? 0) > 0) {
+    lineaPanelMsg.value = `Clasificación IA lista — ${p.actualizadas} línea(s) actualizada(s)`;
+  } else if (p.estado === "error") {
+    lineaPanelError.value = p.error ?? p.mensaje ?? "Error en clasificación IA";
+  }
+  resetIaProgresoUi();
+}
+
+async function tickClasificacionIaPoll(
+  onTick?: (actual: number, total: number, etapa: string) => void
+): Promise<void> {
+  const p = await api.getClasificacionIaProgreso(casoId);
+  aplicarProgresoClasificacionIaDesdeApi(p);
+  onTick?.(p.procesadas, p.total, clasificacionIaTrabajandoEtapa.value);
+
+  if (p.estado === "en_curso") {
+    if (p.procesadas > iaPollUltimoProcesadas.value && p.procesadas % 3 === 0) {
+      iaPollUltimoProcesadas.value = p.procesadas;
+      await loadLineas(false);
+      await refreshLineasPendientes();
+    } else if (p.procesadas > iaPollUltimoProcesadas.value) {
+      iaPollUltimoProcesadas.value = p.procesadas;
+    }
+    return;
+  }
+
+  if (clasificacionIaMasivaLoading.value) {
+    await onClasificacionIaTerminada(p);
+  }
+}
+
+async function pollClasificacionIaProgreso(
+  onTick?: (actual: number, total: number, etapa: string) => void
+): Promise<void> {
+  await tickClasificacionIaPoll(onTick);
+}
+
+async function syncClasificacionIaAlEntrar(): Promise<void> {
+  try {
+    const p = await api.getClasificacionIaProgreso(casoId);
+    if (p.estado !== "en_curso") return;
+    aplicarProgresoClasificacionIaDesdeApi(p);
+    iaPollUltimoProcesadas.value = p.procesadas;
+    clasificacionIaMasivaLoading.value = true;
+    startIaPollTimer();
+  } catch {
+    /* ignorar — no bloquea la carga de revisión */
+  }
+}
+
+function resetIaProgresoUi(): void {
+  iaLineaEnCurso.value = null;
+  iaUltimasLineas.value = [];
+  iaLineasRecientesIds.value = [];
+  iaPollUltimoProcesadas.value = 0;
+  clasificacionIaProgresoActual.value = 0;
+  clasificacionIaProgresoTotal.value = 0;
+  clasificacionIaTrabajandoEtapa.value = "";
+}
+
+async function ejecutarClasificacionIaDudosas(opts?: {
+  onProgreso?: (actual: number, total: number, etapa: string) => void;
+}): Promise<{ actualizadas: number; errores: number; procesadas: number; omitidas?: number }> {
+  if (lineasDudosasIaCount.value === 0) {
+    return { actualizadas: 0, errores: 0, procesadas: 0 };
+  }
+
+  resetIaProgresoUi();
+  clasificacionIaMasivaLoading.value = true;
+  clasificacionIaProgresoTotal.value = lineasDudosasIaCount.value;
+  clasificacionIaTrabajandoEtapa.value = "Iniciando clasificación en el servidor…";
+  opts?.onProgreso?.(0, lineasDudosasIaCount.value, clasificacionIaTrabajandoEtapa.value);
+
+  startIaPollTimer(opts?.onProgreso);
+
+  try {
+    const res = await api.clasificarLineasDudosasIa(casoId);
+    await pollClasificacionIaProgreso(opts?.onProgreso);
+    if (clasificacionIaMasivaLoading.value) {
+      const p = await api.getClasificacionIaProgreso(casoId);
+      await onClasificacionIaTerminada(p);
+    } else {
+      await refreshCaso();
+      await loadLineas(false);
+      await refreshAprobacionBlockers();
+    }
+    return {
+      actualizadas: res.actualizadas,
+      errores: res.errores,
+      procesadas: res.procesadas,
+      omitidas: res.omitidas,
+    };
+  } catch (e) {
+    stopIaPollTimer();
+    clasificacionIaMasivaLoading.value = false;
+    resetIaProgresoUi();
+    throw e;
   }
 }
 
 async function confirmClasificacionIa(): Promise<void> {
-  if (clasificacionIaMasivaLoading.value || lineasSinRubroIaCount.value === 0) return;
+  if (clasificacionIaMasivaLoading.value || lineasDudosasIaCount.value === 0) return;
   clasificacionIaConfirmOpen.value = false;
   lineaPanelMsg.value = "";
   lineaPanelError.value = "";
-  clasificacionIaMasivaLoading.value = true;
-  clasificacionIaTrabajandoOpen.value = true;
-  startClasificacionIaEtapaTimer();
+
   try {
-    const res = await api.clasificarLineasDudosasIa(casoId);
-    await refreshCaso();
-    await loadLineas(false);
-    await refreshAprobacionBlockers();
+    const res = await ejecutarClasificacionIaDudosas();
     if (res.procesadas === 0) {
-      lineaPanelMsg.value = "No hay líneas dudosas para clasificar";
-    } else if (res.errores > 0) {
-      lineaPanelMsg.value = `IA: ${res.actualizadas} clasificada(s), ${res.errores} error(es) — revisá las pendientes`;
+      lineaPanelMsg.value = "No hay líneas dudosas para clasificar con IA";
+      await refreshLineasPendientes();
+      return;
+    }
+    const omitidasTxt =
+      res.omitidas && res.omitidas > 0 ? ` · ${res.omitidas} ya estaban clasificadas por IA (omitidas)` : "";
+    if (res.errores > 0) {
+      lineaPanelMsg.value = `IA: ${res.actualizadas} guardada(s), ${res.errores} error(es)${omitidasTxt} — revisá las pendientes`;
+    } else if (res.actualizadas === 0 && res.omitidas && res.omitidas > 0) {
+      lineaPanelMsg.value = `Todas las líneas dudosas ya fueron clasificadas por IA (${res.omitidas}) — revisá y confirmá`;
     } else {
-      lineaPanelMsg.value = `IA clasificó ${res.actualizadas} línea(s) dudosa(s) — revisá y aprobá`;
+      lineaPanelMsg.value = `IA clasificó y guardó ${res.actualizadas} línea(s)${omitidasTxt} — revisá y confirmá`;
     }
   } catch (e) {
-    lineaPanelError.value = apiErrorMessage(e, "Error en clasificación masiva con IA");
+    lineaPanelError.value = apiErrorMessage(e, "Error en clasificación con IA");
+  }
+}
+
+async function onAnalizarBalance(): Promise<void> {
+  balanceAnalisisError.value = null;
+  balanceAnalisisLoading.value = true;
+  try {
+    balanceAnalisis.value = await api.getBalanceAnalisis(casoId, { diagnosticoIa: true });
+  } catch (e) {
+    balanceAnalisisError.value = apiErrorMessage(e, "No se pudo analizar el balance");
   } finally {
-    stopClasificacionIaEtapaTimer();
-    clasificacionIaTrabajandoOpen.value = false;
-    clasificacionIaMasivaLoading.value = false;
+    balanceAnalisisLoading.value = false;
+  }
+}
+
+async function onReconciliarBalance(): Promise<void> {
+  balanceReconciliarMsg.value = null;
+  balanceAnalisisError.value = null;
+  const ok = confirm(
+    "Reconciliar balance: excluir totales/ER/flujo fuera del balance objetivo, eliminar duplicados ×1000, reclasificar patrimonio mal ubicado y crear ajuste en 3.9 si hace falta.\n\n¿Continuar?"
+  );
+  if (!ok) return;
+
+  balanceReconciliarLoading.value = true;
+  try {
+    const res = await api.reconciliarBalance(casoId, { crearAjuste: true });
+    balanceAnalisis.value = res.analisis;
+    balanceReconciliarMsg.value = res.mensaje;
+    await refreshCaso();
+    await loadLineas(false);
+    await refreshLineasPendientes();
+    await refreshAprobacionBlockers();
+    lineaPanelMsg.value = res.mensaje;
+  } catch (e) {
+    balanceAnalisisError.value = apiErrorMessage(e, "No se pudo reconciliar el balance");
+  } finally {
+    balanceReconciliarLoading.value = false;
+  }
+}
+
+async function onEliminarDuplicados(): Promise<void> {
+  lineaPanelMsg.value = "";
+  lineaPanelError.value = "";
+
+  const { duplicadasCount, gruposCount } = analisisDuplicadosLineas.value;
+  if (duplicadasCount === 0) {
+    lineaPanelMsg.value = "No hay duplicados para eliminar";
+    return;
+  }
+
+  const ok = confirm(
+    `Hay ${duplicadasCount} fila(s) duplicada(s) en ${gruposCount} grupo(s) (mismo concepto y monto).\n\nSe conservará en cada grupo la fila con mejor rubro y confianza.\n\n¿Eliminar duplicados?`
+  );
+  if (!ok) return;
+
+  eliminarDuplicadosLoading.value = true;
+  try {
+    const res = await api.eliminarDuplicadosLineas(casoId);
+    await refreshCaso();
+    await loadLineas(false);
+    await refreshLineasPendientes();
+    await refreshAprobacionBlockers();
+    lineaPanelMsg.value =
+      res.eliminadas > 0
+        ? `Se eliminaron ${res.eliminadas} duplicado(s) en ${res.grupos} grupo(s)`
+        : "No había duplicados para eliminar";
+  } catch (e) {
+    lineaPanelError.value = apiErrorMessage(e, "No se pudieron eliminar los duplicados");
+  } finally {
+    eliminarDuplicadosLoading.value = false;
+  }
+}
+
+async function onEliminarLinea(linea: LineaContableDto): Promise<void> {
+  lineaPanelMsg.value = "";
+  lineaPanelError.value = "";
+
+  const monto = linea.montoNormalizado ?? linea.montoOriginal;
+  const clave = lineaDuplicadoKey(linea);
+  const similares = lineas.value.filter((l) => lineaDuplicadoKey(l) === clave);
+
+  const conceptoCorto =
+    linea.denominacionOriginal.length > 72
+      ? `${linea.denominacionOriginal.slice(0, 72)}…`
+      : linea.denominacionOriginal;
+
+  let eliminarSimilares = false;
+  if (similares.length > 1) {
+    eliminarSimilares = confirm(
+      `Hay ${similares.length} filas con el mismo concepto y monto.\n\n«${conceptoCorto}»\n\n¿Eliminar todas?\n\nAceptar = todas · Cancelar = solo esta fila`
+    );
+  } else if (!confirm(`¿Eliminar esta línea?\n\n«${conceptoCorto}»`)) {
+    return;
+  }
+
+  try {
+    const res = await api.deleteCasoLinea(casoId, linea.id, { eliminarSimilares });
+    await refreshCaso();
+    await loadLineas(false);
+    await refreshLineasPendientes();
+    await refreshAprobacionBlockers();
+    lineaPanelMsg.value =
+      res.eliminadas > 1
+        ? `Se eliminaron ${res.eliminadas} líneas duplicadas`
+        : "Línea eliminada";
+  } catch (e) {
+    lineaPanelError.value = apiErrorMessage(e, "No se pudo eliminar la línea");
   }
 }
 
@@ -2090,7 +2634,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   isMounted = false;
-  stopClasificacionIaEtapaTimer();
+  stopIaPollTimer();
 });
 </script>
 
@@ -2115,6 +2659,113 @@ h1 {
 
 .metadatos-card h3 {
   margin-top: 0;
+}
+
+.revision-ident-unified {
+  border-left-width: 4px;
+  border-left-style: solid;
+  border-left-color: var(--line-2);
+}
+
+.revision-ident-unified--ok {
+  border-left-color: var(--ok);
+}
+
+.revision-ident-unified--warn {
+  border-left-color: var(--warn);
+}
+
+.revision-ident-unified--err {
+  border-left-color: var(--bad);
+}
+
+.revision-ident-unified__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.revision-ident-unified__head-left {
+  min-width: 0;
+}
+
+.revision-ident-unified__head--no-empresa {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.revision-ident-unified__status {
+  align-self: start;
+}
+
+.revision-empresa-titulo {
+  margin: 0;
+  padding: 0 0.5rem;
+  text-align: center;
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--brand-ink, var(--ink));
+  word-break: break-word;
+}
+
+.revision-ident-unified__head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.revision-ident-unified__ref {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.revision-ident-unified__num {
+  margin-left: 0.35rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.revision-ident-unified__doc {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+.revision-ident-unified__hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.acciones-avanzadas__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.acciones-avanzadas__btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.acciones-avanzadas__btn--danger {
+  color: var(--bad);
+}
+
+.cerrar-parcial-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  font-size: 0.82rem;
+  cursor: pointer;
 }
 
 .meta-fields {
@@ -2499,9 +3150,49 @@ h1 {
   gap: 0.75rem;
 }
 
+.revision-section__head-row--with-empresa {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.revision-section__head-row--with-empresa .revision-section__head-actions {
+  justify-self: end;
+}
+
+.revision-section__head-row--no-empresa {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+}
+
+@media (max-width: 900px) {
+  .revision-ident-unified__head:not(.revision-ident-unified__head--no-empresa) {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-ident-unified__head .revision-empresa-titulo {
+    order: -1;
+    padding: 0.25rem 0 0.5rem;
+  }
+
+  .revision-section__head-row--with-empresa:not(.revision-section__head-row--no-empresa) {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-section__head-row--with-empresa .revision-empresa-titulo {
+    order: -1;
+    margin-bottom: 0.25rem;
+  }
+
+  .revision-section__head-row--with-empresa .revision-section__head-actions {
+    justify-self: start;
+  }
+}
+
 .revision-section__head-row h2 {
   margin: 0;
   font-size: 1.05rem;
+  white-space: nowrap;
 }
 
 .revision-section__head-actions {
@@ -2538,6 +3229,66 @@ h1 {
 
 .revision-section__head--lineas {
   margin-bottom: 0.75rem;
+}
+
+.revision-lineas-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.revision-lineas-layout {
+  display: block;
+}
+
+.revision-lineas-layout--split {
+  display: grid;
+  grid-template-columns: minmax(280px, 38%) 1fr;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.revision-lineas-layout__doc {
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100vh - 7rem);
+  min-height: 420px;
+}
+
+.revision-lineas-layout__main {
+  min-width: 0;
+}
+
+.revision-lineas--locked .revision-lineas-layout__main {
+  pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(0.15);
+}
+
+.revision-step-gate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 960px) {
+  .revision-lineas-layout--split {
+    grid-template-columns: 1fr;
+  }
+
+  .revision-lineas-layout__doc {
+    position: relative;
+    max-height: 420px;
+  }
 }
 
 .revision-section__head p {
@@ -3630,48 +4381,127 @@ h1 {
   justify-content: center;
 }
 
-.revision-ia-trabajando {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 1.25rem 0.5rem 0.75rem;
-  gap: 0.65rem;
+.revision-ia-banner-top {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 25;
+  margin: 0 0 0.85rem;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
-.revision-ia-trabajando__spinner {
-  width: 3.25rem;
-  height: 3.25rem;
+.revision-ia-banner-top__title {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.revision-ia-banner-top__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.revision-ia-banner-top__goto {
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+}
+
+.revision-ia-live {
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+  background: color-mix(in srgb, var(--brand-soft) 40%, var(--panel));
+}
+
+.revision-ia-live__head {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.revision-ia-live__spinner {
+  width: 2.25rem;
+  height: 2.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--brand) 12%, var(--panel-2));
+  background: color-mix(in srgb, var(--brand) 14%, var(--panel-2));
   color: var(--brand);
-  font-size: 1.35rem;
+  flex-shrink: 0;
 }
 
-.revision-ia-trabajando__title {
-  margin: 0;
-  font-size: 1rem;
+.revision-ia-live__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.revision-ia-live__count {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
 }
 
-.revision-ia-trabajando__etapa {
-  margin: 0;
-  font-size: 0.9rem;
+.revision-ia-live__curso {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
   color: var(--brand-ink);
   font-weight: 600;
-  min-height: 1.35rem;
 }
 
-.revision-ia-trabajando__hint {
-  margin: 0.35rem 0 0;
-  max-width: 28rem;
-  font-size: 0.84rem;
-  line-height: 1.45;
+.revision-ia-live__curso--muted {
   color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.revision-ia-live__feed {
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 8.5rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+
+.revision-ia-live__feed-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.35rem 0;
+  font-size: 0.72rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.revision-ia-live__feed-item--ok i {
+  color: var(--ok);
+}
+
+.revision-ia-live__feed-item--err i {
+  color: var(--bad);
+}
+
+.revision-ia-live__feed-concepto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revision-ia-live__feed-rubro {
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.revision-ia-live__hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
 }
 
 @media (max-width: 960px) {

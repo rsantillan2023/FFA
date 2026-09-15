@@ -51,6 +51,18 @@
               <span class="f1-popover__status">{{ pasoCorto(etapa, index) }}</span>
             </div>
             <p v-if="metaLine(etapa, index)" class="f1-popover__meta">{{ metaLine(etapa, index) }}</p>
+            <ul v-if="etapa.subPasos?.length && etapa.enCurso" class="f1-popover__sub">
+              <li
+                v-for="sub in etapa.subPasos"
+                :key="sub.id"
+                class="f1-popover__sub-item"
+                :class="`f1-popover__sub-item--${sub.estado}`"
+              >
+                <span class="f1-popover__sub-label">{{ sub.label }}</span>
+                <span class="f1-popover__sub-status">{{ pipelineSubPasoEstadoCorto(sub.estado) }}</span>
+                <span v-if="subMeta(sub)" class="f1-popover__sub-meta">{{ subMeta(sub) }}</span>
+              </li>
+            </ul>
           </li>
         </ul>
         <p v-if="pasoDetenidoLabel" class="f1-popover__stop">
@@ -64,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import type { PipelineEtapaDto } from "@ffa/shared";
+import type { PipelineEtapaDto, PipelineSubPasoDto } from "@ffa/shared";
 import { computed, ref } from "vue";
 import {
   formatDuracionSegundos,
@@ -77,6 +89,9 @@ import {
   pipelineFriendlyMeta,
   pipelinePasoEstado,
   pipelinePasoEstadoCorto,
+  pipelineSubPasoActivo,
+  pipelineSubPasoMetaLine,
+  pipelineSubPasoEstadoCorto,
 } from "../utils/pipelineDisplay";
 
 const props = defineProps<{
@@ -116,9 +131,14 @@ const pasoDetenidoLabel = computed(() => {
   if (!etapa) return null;
   const meta = pipelineFriendlyMeta(etapa);
   const enCurso = etapa.enCurso === true;
+  const sub = pipelineSubPasoActivo(etapa);
   const parts = [
     props.procesando && enCurso
-      ? `Procesando: ${meta.titulo}`
+      ? sub?.estado === "espera"
+        ? `En cola: ${meta.titulo}`
+        : sub
+          ? `Procesando: ${sub.label}`
+          : `Procesando: ${meta.titulo}`
       : enCurso
         ? `Detenido en: ${meta.titulo}`
         : `Próximo paso: ${meta.titulo}`,
@@ -126,7 +146,11 @@ const pasoDetenidoLabel = computed(() => {
   if (enCurso && etapa.iniciadaEn) {
     parts.push(`desde ${formatHoraCorta(etapa.iniciadaEn)}`);
   }
-  if (enCurso && etapa.duracionSegundos != null && etapa.duracionSegundos > 0) {
+  if (sub?.estado === "espera" && sub.esperaSegundos != null && sub.esperaSegundos > 0) {
+    parts.push(`espera ${formatDuracionSegundos(sub.esperaSegundos)}`);
+  } else if (sub?.trabajoSegundos != null && sub.trabajoSegundos > 0) {
+    parts.push(`trabajo ${formatDuracionSegundos(sub.trabajoSegundos)}`);
+  } else if (enCurso && etapa.duracionSegundos != null && etapa.duracionSegundos > 0) {
     parts.push(formatDuracionSegundos(etapa.duracionSegundos));
   }
   if (enCurso && etapa.progresoPct != null) {
@@ -145,9 +169,17 @@ function bulbEstado(etapa: PipelineEtapaDto, index: number) {
 
 function pasoCorto(etapa: PipelineEtapaDto, index: number): string {
   const color = bulbEstado(etapa, index);
-  if (color === "azul") return "Procesando";
+  if (color === "azul") {
+    const sub = pipelineSubPasoActivo(etapa);
+    if (sub?.estado === "espera") return "En cola";
+    return "Procesando";
+  }
   if (color === "rojo") return "Detenido";
   return pipelinePasoEstadoCorto(pipelinePasoEstado(etapa, index, displayEtapas.value));
+}
+
+function subMeta(sub: PipelineSubPasoDto): string {
+  return pipelineSubPasoMetaLine(sub);
 }
 
 function bulbTitle(etapa: PipelineEtapaDto, index: number): string {
@@ -171,7 +203,9 @@ function updatePopoverPosition(): void {
   const r = el.getBoundingClientRect();
   const width = 340;
   const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
-  const estHeight = 32 + displayEtapas.value.length * 38 + (pasoDetenidoLabel.value ? 36 : 0) + 36;
+  const subExtra = displayEtapas.value.some((e) => e.enCurso && e.subPasos?.length) ? 52 : 0;
+  const estHeight =
+    32 + displayEtapas.value.length * 38 + subExtra + (pasoDetenidoLabel.value ? 36 : 0) + 36;
   const spaceBelow = window.innerHeight - r.bottom;
   const top =
     spaceBelow >= estHeight + 8
@@ -217,10 +251,10 @@ function cancelClose(): void {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 3px 5px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: help;
 }
 
@@ -228,15 +262,14 @@ function cancelClose(): void {
   width: 10px;
   height: 10px;
   padding: 0;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--ink-soft, #94a3b8) 75%, var(--line, #cbd5e1));
   border-radius: 50%;
   cursor: pointer;
   flex-shrink: 0;
+  box-sizing: border-box;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
-  background: #3a3a3a;
-  box-shadow:
-    inset 0 -2px 3px rgba(0, 0, 0, 0.5),
-    inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  background: transparent;
+  box-shadow: none;
 }
 
 .f1-lights__bulb:hover {
@@ -244,10 +277,13 @@ function cancelClose(): void {
 }
 
 .f1-lights__bulb--gris {
-  background: radial-gradient(circle at 35% 30%, #6b6b6b, #2e2e2e 65%);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink-soft, #94a3b8) 75%, var(--line, #cbd5e1));
+  box-shadow: none;
 }
 
 .f1-lights__bulb--verde {
+  border: none;
   background: radial-gradient(circle at 35% 30%, #86efac, #16a34a 55%, #14532d 100%);
   box-shadow:
     inset 0 -1px 2px rgba(0, 0, 0, 0.35),
@@ -255,6 +291,7 @@ function cancelClose(): void {
 }
 
 .f1-lights__bulb--azul {
+  border: none;
   background: radial-gradient(circle at 35% 30%, #93c5fd, #2563eb 55%, #1e3a8a 100%);
   box-shadow:
     inset 0 -1px 2px rgba(0, 0, 0, 0.35),
@@ -263,6 +300,7 @@ function cancelClose(): void {
 }
 
 .f1-lights__bulb--rojo {
+  border: none;
   background: radial-gradient(circle at 35% 30%, #fca5a5, #dc2626 55%, #7f1d1d 100%);
   box-shadow:
     inset 0 -1px 2px rgba(0, 0, 0, 0.35),
@@ -358,7 +396,9 @@ function cancelClose(): void {
 }
 
 .f1-popover__dot--gris {
-  background: #94a3b8;
+  background: transparent;
+  border: 1px solid #94a3b8;
+  box-sizing: border-box;
 }
 
 .f1-popover__num {
@@ -419,5 +459,57 @@ function cancelClose(): void {
   margin: 0.35rem 0 0;
   font-size: 0.5625rem;
   color: var(--ink-faint, #94a3b8);
+}
+
+.f1-popover__sub {
+  margin: 0.18rem 0 0 1.95rem;
+  padding: 0.22rem 0.3rem;
+  list-style: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel-2, #f8fafc) 80%, var(--panel, #fff));
+  border: 1px dashed var(--line, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.f1-popover__sub-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.35rem;
+  font-size: 0.5625rem;
+  align-items: baseline;
+}
+
+.f1-popover__sub-label {
+  font-weight: 600;
+}
+
+.f1-popover__sub-status {
+  font-weight: 600;
+  text-align: right;
+}
+
+.f1-popover__sub-item--listo .f1-popover__sub-status {
+  color: var(--ok, #15803d);
+}
+
+.f1-popover__sub-item--en_curso .f1-popover__sub-status {
+  color: #2563eb;
+}
+
+.f1-popover__sub-item--espera .f1-popover__sub-status {
+  color: var(--warn, #ca8a04);
+}
+
+.f1-popover__sub-item--pendiente .f1-popover__sub-status {
+  color: var(--ink-soft, #64748b);
+}
+
+.f1-popover__sub-meta {
+  grid-column: 1 / -1;
+  font-size: 0.5rem;
+  color: var(--ink-soft, #64748b);
+  line-height: 1.3;
 }
 </style>

@@ -4,8 +4,10 @@ import {
   LineaContableModel,
   ValidacionResultadoModel,
   registrarAuditoria,
+  setCasoPipelineRunId,
   transicionarCaso,
 } from "@ffa/db";
+import { newPipelineRunId } from "@ffa/queue";
 import { CasoEstado } from "@ffa/shared";
 import { enqueuePreprocess } from "../lib/queues.js";
 import { assertFichaEditable } from "./revision.js";
@@ -32,7 +34,8 @@ export async function reprocesarCaso(casoId: string, userId: string): Promise<vo
     nota: "Reprocesamiento forzado por administrador",
   });
 
-  const pipelineRunId = String(Date.now());
+  const pipelineRunId = newPipelineRunId();
+  await setCasoPipelineRunId(casoId, pipelineRunId);
   for (const doc of docs) {
     await enqueuePreprocess(casoId, doc._id.toString(), pipelineRunId);
   }

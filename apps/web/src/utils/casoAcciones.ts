@@ -1,4 +1,8 @@
-import { CasoEstado } from "@ffa/shared";
+import {
+  CasoEstado,
+  umbralSegundosProcesamientoTrabado,
+  type ProcesamientoMotorEstado,
+} from "@ffa/shared";
 
 const REVISION_ESTADOS = new Set<string>([
   CasoEstado.EN_REVISION,
@@ -51,7 +55,61 @@ export function esCasoTrabadoRecuperable(c: {
   estado: string;
   documentosCount?: number;
 }): boolean {
+  if (c.estado === CasoEstado.ARCHIVADO) return false;
   return (
     puedeReiniciarFojaCero(c) && ESTADOS_TRABADOS_RECUPERABLES.has(c.estado)
   );
+}
+
+export interface ProgresoTrabadoContext {
+  motorEstado?: ProcesamientoMotorEstado;
+  segundosEnEtapa?: number;
+  pausado?: boolean;
+}
+
+/**
+ * Caso realmente trabado (sin job activo), no extracción IA lenta ni reinicio reciente.
+ * Alineado con inferirMotor en la API.
+ */
+export function esCasoProcesamientoTrabado(
+  c: { estado: string; documentosCount?: number; procesamientoPausado?: boolean },
+  progreso?: ProgresoTrabadoContext | null,
+  opts?: { reinicioEnCurso?: boolean }
+): boolean {
+  if (!esCasoTrabadoRecuperable(c)) return false;
+  if (opts?.reinicioEnCurso) return false;
+
+  const motor = progreso?.motorEstado;
+  const secs = progreso?.segundosEnEtapa ?? 0;
+  const pausado = progreso?.pausado ?? c.procesamientoPausado === true;
+  const umbral = umbralSegundosProcesamientoTrabado(c.estado);
+
+  if (motor === "activo" || motor === "en_cola") {
+    // Defensa: otro caso ocupando el worker no debe ocultar un expediente ya trabado.
+    if (secs > umbral && !opts?.reinicioEnCurso) return true;
+    return false;
+  }
+
+  if (c.estado === CasoEstado.ERROR || c.estado === CasoEstado.PENDIENTE_CALIDAD) {
+    return true;
+  }
+
+  if (pausado || motor === "pausado") return true;
+  if (motor === "inactivo") return secs > umbral;
+
+  if (motor === "desconocido") return secs > umbral;
+
+  if (motor == null) return secs > umbral;
+
+  return false;
+}
+
+/** Caso que puede pasarse a archivado desde la bandeja. */
+export function puedeArchivar(estado: string): boolean {
+  return estado !== CasoEstado.ARCHIVADO;
+}
+
+/** Caso archivado que puede reactivarse. */
+export function puedeDesarchivar(estado: string): boolean {
+  return estado === CasoEstado.ARCHIVADO;
 }

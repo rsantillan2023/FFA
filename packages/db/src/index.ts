@@ -47,7 +47,26 @@ export {
   type ReglasClasificacionVersionDocument,
 } from "./models/reglas-clasificacion-version.js";
 export { crearCaso, transicionarCaso, generarNumeroCaso } from "./services/caso-service.js";
+export {
+  countCasosPreprocessando,
+  puedeIniciarPreprocess,
+  reconciliarPreprocessHuerfanos,
+} from "./services/preprocess-slots.js";
 export { marcarCasoPipelineFallido } from "./services/pipeline-fallo.js";
+export { assertPipelineRunVigente, setCasoPipelineRunId } from "./services/pipeline-run.js";
+export {
+  analizarBalanceCaso,
+  reconciliarBalanceCaso,
+  ensureRubrosGenericosCuadratura,
+  cuadraturaResumenPorCasos,
+  type CuadraturaCasoResumen,
+} from "./services/balance-reconciliar.js";
+export { eliminarLineasDuplicadasCaso } from "./services/linea-duplicados.js";
+export {
+  ejecutarPreRevisionCaso,
+  type PreRevisionResult,
+  type PreRevisionPasoLog,
+} from "./services/pre-revision-orchestrator.js";
 export { registrarAuditoria } from "./services/auditoria-service.js";
 export { ejecutarPurgaRetencion } from "./services/retencion.js";
 export {

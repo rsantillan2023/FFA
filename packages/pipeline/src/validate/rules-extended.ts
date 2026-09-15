@@ -1,5 +1,6 @@
 import { EstadoFinanciero, ValidacionSeveridad, ValidacionTipo } from "@ffa/shared";
 import type { ClassifiedLine, ValidateContext, ValidationItem } from "../types.js";
+import { agruparLineasPorPagina, lineasAlcanceBalance } from "./alcance-balance.js";
 
 function hasEstado(
   lineas: ClassifiedLine[],
@@ -95,20 +96,29 @@ export function buildExtendedValidations(
     });
   }
 
-  const bajaConfianza = lineas.filter((l) => l.confianzaClasificacion < umbralConfianza);
-  const activoLineas = lineas.filter((l) => {
+  const alcance = lineasAlcanceBalance(lineas, ctx.paginasBalanceObjetivo);
+  const alcanceLabel = ctx.paginasBalanceObjetivo?.length
+    ? `balance objetivo (págs. ${ctx.paginasBalanceObjetivo.join(", ")})`
+    : "documento completo";
+
+  const activoLineas = alcance.filter((l) => {
     if (!l.rubroInstitucionalId) return false;
     return rubrosById.get(l.rubroInstitucionalId)?.estadoFinanciero === EstadoFinanciero.ACTIVO;
   });
+  const bajaConfianzaActivo = activoLineas.filter(
+    (l) =>
+      l.confianzaClasificacion < umbralConfianza &&
+      (l.requiereRevision || !l.rubroInstitucionalId)
+  );
   const pctMal = activoLineas.length
-    ? Math.round((bajaConfianza.length / activoLineas.length) * 100)
+    ? Math.round((bajaConfianzaActivo.length / activoLineas.length) * 100)
     : 0;
   if (pctMal >= 20) {
     out.push({
       tipo: ValidacionTipo.ACTIVO_SOBREVALORADO,
       severidad: ValidacionSeveridad.WARNING,
       passed: false,
-      mensaje: `${pctMal}% del activo con clasificación bajo umbral (H.19)`,
+      mensaje: `${pctMal}% del activo con clasificación bajo umbral en ${alcanceLabel} (H.19)`,
       metadata: { origen: "sistema", pctMal },
     });
   }
@@ -125,7 +135,7 @@ export function buildExtendedValidations(
     metadata: { origen: "sistema", confianzaPromedio },
   });
 
-  const distorsiones = lineas.filter((l) => {
+  const distorsiones = alcance.filter((l) => {
     if (!l.rubroInstitucionalId) return false;
     const rubro = rubrosById.get(l.rubroInstitucionalId);
     const denom = (l.denominacionNormalizada ?? "").toLowerCase();
@@ -150,11 +160,11 @@ export function buildExtendedValidations(
     });
   }
 
-  const pasivoPatrimonioCombo = lineas.filter((l) => {
+  const pasivoPatrimonioCombo = alcance.filter((l) => {
     const d = (l.denominacionNormalizada ?? l.denominacionOriginal).toLowerCase();
     return (
       /pasivo.*patrimonio|patrimonio.*pasivo|total pasivo y patrimonio/.test(d) ||
-      (d.includes("total pasivo") && !d.includes("no corriente") && lineas.some((x) => {
+      (d.includes("total pasivo") && !d.includes("no corriente") && alcance.some((x) => {
         const xd = (x.denominacionNormalizada ?? "").toLowerCase();
         return xd.includes("patrimonio") && x !== l;
       }))
@@ -170,39 +180,52 @@ export function buildExtendedValidations(
     });
   }
 
-  for (let i = 0; i < lineas.length; i++) {
-    const l = lineas[i]!;
-    const denom = l.denominacionNormalizada ?? "";
-    if (!/total|subtotal|suma/i.test(denom)) continue;
+  function validarSubtotalesH17(lineasPagina: ClassifiedLine[], pagina?: number): void {
+    for (let i = 0; i < lineasPagina.length; i++) {
+      const l = lineasPagina[i]!;
+      const denom = l.denominacionNormalizada ?? "";
+      if (!/total|subtotal|suma/i.test(denom)) continue;
 
-    let start = 0;
-    for (let j = i - 1; j >= 0; j--) {
-      const prev = lineas[j]!.denominacionNormalizada ?? "";
-      if (/total|subtotal|suma/i.test(prev)) {
-        start = j + 1;
-        break;
+      let start = 0;
+      for (let j = i - 1; j >= 0; j--) {
+        const prev = lineasPagina[j]!.denominacionNormalizada ?? "";
+        if (/total|subtotal|suma/i.test(prev)) {
+          start = j + 1;
+          break;
+        }
       }
+      const components = lineasPagina.slice(start, i).filter((x) => {
+        const d = x.denominacionNormalizada ?? "";
+        return !/total|subtotal|suma/i.test(d);
+      });
+      if (components.length < 2) continue;
+
+      const sum = components.reduce((a, c) => a + (c.montoNormalizado ?? c.montoOriginal), 0);
+      const total = l.montoNormalizado ?? l.montoOriginal;
+      const tol = Math.max(Math.abs(total) * 0.02, 1);
+      const ok = Math.abs(sum - total) <= tol;
+      const pagLabel = pagina != null ? ` pág. ${pagina}` : "";
+
+      out.push({
+        tipo: ValidacionTipo.INTEGRIDAD_AGRUPACION,
+        severidad: ok ? ValidacionSeveridad.INFO : ValidacionSeveridad.WARNING,
+        passed: ok,
+        mensaje: ok
+          ? `Subtotal "${l.denominacionOriginal}"${pagLabel} cuadra con ${components.length} componentes (H.17)`
+          : `Subtotal "${l.denominacionOriginal}"${pagLabel} no cuadra: suma ${sum.toLocaleString("es-CL")} ≠ ${total.toLocaleString("es-CL")} (H.17)`,
+        metadata: { origen, sum, total, componentes: components.length, paginaNumero: pagina },
+      });
     }
-    const components = lineas.slice(start, i).filter((x) => {
-      const d = x.denominacionNormalizada ?? "";
-      return !/total|subtotal|suma/i.test(d);
-    });
-    if (components.length < 2) continue;
+  }
 
-    const sum = components.reduce((a, c) => a + (c.montoNormalizado ?? c.montoOriginal), 0);
-    const total = l.montoNormalizado ?? l.montoOriginal;
-    const tol = Math.max(Math.abs(total) * 0.02, 1);
-    const ok = Math.abs(sum - total) <= tol;
-
-    out.push({
-      tipo: ValidacionTipo.INTEGRIDAD_AGRUPACION,
-      severidad: ok ? ValidacionSeveridad.INFO : ValidacionSeveridad.WARNING,
-      passed: ok,
-      mensaje: ok
-        ? `Subtotal "${l.denominacionOriginal}" cuadra con ${components.length} componentes (H.17)`
-        : `Subtotal "${l.denominacionOriginal}" no cuadra: suma ${sum.toLocaleString("es-CL")} ≠ ${total.toLocaleString("es-CL")} (H.17)`,
-      metadata: { origen, sum, total, componentes: components.length },
-    });
+  if (ctx.paginasBalanceObjetivo?.length) {
+    const porPagina = agruparLineasPorPagina(alcance);
+    for (const p of ctx.paginasBalanceObjetivo) {
+      const enPagina = porPagina.get(p);
+      if (enPagina?.length) validarSubtotalesH17(enPagina, p);
+    }
+  } else {
+    validarSubtotalesH17(lineas);
   }
 
   return out;

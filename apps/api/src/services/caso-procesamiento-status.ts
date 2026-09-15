@@ -2,13 +2,21 @@ import { AuditoriaEventoModel, CasoModel, DocumentoFuenteModel, type CasoDocumen
 import {
   QUEUE_NAMES,
   getInlineActiveRun,
+  getInlineActiveRunForCaso,
   getQueueBackend,
   getRedisConnection,
+  inlineConcurrentStats,
   isInlineQueueBusy,
+  preprocessInlineConcurrency,
   type ClassifyJobData,
   type PipelineJobData,
 } from "@ffa/queue";
-import { CasoEstado, type CasoProgresoDto } from "@ffa/shared";
+import {
+  CasoEstado,
+  detalleExtraccionEnCurso,
+  umbralSegundosProcesamientoTrabado,
+  type CasoProgresoDto,
+} from "@ffa/shared";
 import { Queue } from "bullmq";
 import { appConfig } from "../config.js";
 
@@ -129,10 +137,16 @@ async function buscarJobsCaso(casoId: string): Promise<
   return out;
 }
 
+interface InferirMotorContext {
+  /** Documento con etapa extract sin metadata — extracción IA en curso. */
+  extractDocEnCurso?: boolean;
+}
+
 function inferirMotor(
   caso: CasoDocument,
   jobs: Awaited<ReturnType<typeof buscarJobsCaso>>,
-  segundosEnEtapa: number
+  segundosEnEtapa: number,
+  ctx?: InferirMotorContext
 ): NonNullable<CasoProgresoDto["motor"]> {
   const backend = getQueueBackend();
 
@@ -159,13 +173,17 @@ function inferirMotor(
 
   if (backend === "inline") {
     const casoId = caso._id.toString();
-    const active = getInlineActiveRun();
+    const activeMine = getInlineActiveRunForCaso(casoId);
+    const activeOtro = getInlineActiveRun();
 
-    if (active?.casoId === casoId) {
-      const secs = Math.floor((Date.now() - active.startedAt) / 1000);
-      const label = COLA_LABEL[active.queueName] ?? active.queueName;
+    const detalleTrabado = (estadoLabel: string) =>
+      `Procesamiento trabado — ${Math.floor(segundosEnEtapa / 60)} min en "${estadoLabel}" sin avance. Reiniciá con foja cero si no responde.`;
+
+    if (activeMine) {
+      const secs = Math.floor((Date.now() - activeMine.startedAt) / 1000);
+      const label = COLA_LABEL[activeMine.queueName] ?? activeMine.queueName;
       const detalleExtra =
-        active.queueName === QUEUE_NAMES.EXTRACT && secs > 120
+        activeMine.queueName === QUEUE_NAMES.EXTRACT && secs > 120
           ? " La extracción IA puede tardar varios minutos en PDFs grandes."
           : "";
       return {
@@ -177,14 +195,31 @@ function inferirMotor(
     }
 
     if (caso.estado === CasoEstado.EN_COLA) {
+      const umbralTrabado = umbralSegundosProcesamientoTrabado(caso.estado);
+      if (segundosEnEtapa > umbralTrabado) {
+        return {
+          backend,
+          estado: "inactivo",
+          detalle: detalleTrabado(ESTADO_CASO_LABEL[caso.estado] ?? caso.estado),
+        };
+      }
+
       const colaOcupada =
         isInlineQueueBusy(QUEUE_NAMES.PREPROCESS) || isInlineQueueBusy(QUEUE_NAMES.EXTRACT);
-      if (colaOcupada || active) {
-        const otro = active?.casoId ? ` Otro caso está en ${COLA_LABEL[active.queueName] ?? active.queueName}.` : "";
+      const otroCasoActivo = activeOtro && activeOtro.casoId !== casoId;
+      if (colaOcupada || otroCasoActivo) {
+        const prep = inlineConcurrentStats(QUEUE_NAMES.PREPROCESS);
+        const maxPrep = preprocessInlineConcurrency();
+        const prepDetalle = prep
+          ? ` Preproceso: ${prep.running}/${maxPrep} activos, ${prep.queued} en espera.`
+          : "";
+        const otro = otroCasoActivo
+          ? ` Otro caso está en ${COLA_LABEL[activeOtro!.queueName] ?? activeOtro!.queueName}.`
+          : "";
         return {
           backend,
           estado: "en_cola",
-          detalle: `Esperando turno en cola inline (una extracción a la vez).${otro}`,
+          detalle: `Esperando turno en cola inline.${prepDetalle}${otro}`,
         };
       }
     }
@@ -196,19 +231,45 @@ function inferirMotor(
     }
 
     if (ESTADOS_PIPELINE_ACTIVO.has(caso.estado)) {
-      if (active && active.casoId !== casoId) {
-        return {
-          backend,
-          estado: "en_cola",
-          detalle: `Esperando — otro caso está en ${COLA_LABEL[active.queueName] ?? active.queueName}.`,
-        };
-      }
+      const umbralTrabado = umbralSegundosProcesamientoTrabado(caso.estado);
 
-      if (segundosEnEtapa > 90) {
+      // Trabado prevalece: otro caso en el worker no convierte un expediente huérfano en «en curso».
+      if (segundosEnEtapa > umbralTrabado) {
         return {
           backend,
           estado: "inactivo",
-          detalle: `Procesamiento trabado — ${Math.floor(segundosEnEtapa / 60)} min en "${ESTADO_CASO_LABEL[caso.estado] ?? caso.estado}" sin job inline activo. Reiniciá con foja cero.`,
+          detalle: detalleTrabado(ESTADO_CASO_LABEL[caso.estado] ?? caso.estado),
+        };
+      }
+
+      const otroCasoActivo = activeOtro && activeOtro.casoId !== casoId;
+      if (otroCasoActivo) {
+        return {
+          backend,
+          estado: "en_cola",
+          detalle: `Esperando — otro caso está en ${COLA_LABEL[activeOtro!.queueName] ?? activeOtro!.queueName}.`,
+        };
+      }
+
+      const extractEnCurso =
+        caso.estado === CasoEstado.EXTRAYENDO &&
+        (activeMine != null || ctx?.extractDocEnCurso === true);
+
+      if (extractEnCurso) {
+        return {
+          backend,
+          estado: "activo",
+          detalle: detalleExtraccionEnCurso(segundosEnEtapa),
+          jobCola: COLA_LABEL[QUEUE_NAMES.EXTRACT],
+        };
+      }
+
+      if (caso.estado === CasoEstado.EXTRAYENDO) {
+        return {
+          backend,
+          estado: "desconocido",
+          detalle: detalleExtraccionEnCurso(segundosEnEtapa),
+          jobCola: COLA_LABEL[QUEUE_NAMES.EXTRACT],
         };
       }
 
@@ -246,7 +307,8 @@ function inferirMotor(
 
   const enPipeline = ESTADOS_PIPELINE_O_COLA.has(caso.estado);
 
-  if (enPipeline && segundosEnEtapa > 180) {
+  const umbralTrabado = umbralSegundosProcesamientoTrabado(caso.estado);
+  if (enPipeline && segundosEnEtapa > umbralTrabado) {
     return {
       backend,
       estado: "inactivo",
@@ -328,9 +390,17 @@ export async function buildProgreso(casoId: string): Promise<CasoProgresoDto | n
 
   const segundosEnEtapa = segundosEnEtapaActual(caso);
   const jobs = await buscarJobsCaso(casoId);
-  const motor = inferirMotor(caso, jobs, segundosEnEtapa);
+  const extractDocEnCurso = docs.some(
+    (d) => d.procesamiento?.etapaActual === "extract" && !d.extractMetadata
+  );
+  const motor = inferirMotor(caso, jobs, segundosEnEtapa, { extractDocEnCurso });
 
-  if (motor.estado === "inactivo" && ESTADOS_LOG_PIPELINE.has(caso.estado)) {
+  const umbralAlertaTrabado = umbralSegundosProcesamientoTrabado(caso.estado);
+  if (
+    motor.estado === "inactivo" &&
+    ESTADOS_LOG_PIPELINE.has(caso.estado) &&
+    segundosEnEtapa > umbralAlertaTrabado
+  ) {
     eventosMerged.push({
       at: new Date().toISOString(),
       accion: "alerta_trabado",

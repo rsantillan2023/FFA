@@ -5,6 +5,7 @@ import type {
   ConfiguracionSistemaDto,
   ContribuyenteDto,
   DocumentoFuenteDto,
+  EliminarDuplicadosLineasResultDto,
   ExtraccionIaTextoDto,
   LineaContableDto,
   ValidacionResultadoDto,
@@ -36,7 +37,10 @@ import type {
   RubroInstitucionalDto,
   ClasificacionPruebaResultDto,
   ClasificacionIaMasivaResultDto,
+  ClasificacionIaProgresoDto,
   SugerenciaClasificacionIaDto,
+  BalanceAnalisisDto,
+  ReconciliarBalanceResultDto,
   UmbralHistorialDto,
   PlanCuentasHistorialDto,
   BuscarResultDto,
@@ -62,6 +66,18 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+export function casoDocumentoFileUrl(casoId: string, documentoId: string): string {
+  return `/api/v1/casos/${casoId}/documentos/${documentoId}/file`;
+}
+
+export function casoDocumentoDerivadoUrl(
+  casoId: string,
+  documentoId: string,
+  nombre: string
+): string {
+  return `/api/v1/casos/${casoId}/documentos/${documentoId}/derivados/${encodeURIComponent(nombre)}`;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -230,6 +246,7 @@ export const api = {
   listCasos(
     filters: {
       estado?: string;
+      estados?: string[];
       contribuyenteId?: string;
       asignadoA?: string;
       semaforo?: string;
@@ -237,12 +254,15 @@ export const api = {
       pendientesAnalista?: boolean;
       desde?: string;
       hasta?: string;
+      sortBy?: string;
+      sortDir?: "asc" | "desc";
     } = {},
     page = 1,
     limit = 20
   ): Promise<PaginatedResponse<CasoDto>> {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (filters.estado) params.set("estado", filters.estado);
+    if (filters.estados?.length) params.set("estados", filters.estados.join(","));
+    else if (filters.estado) params.set("estado", filters.estado);
     if (filters.contribuyenteId) params.set("contribuyenteId", filters.contribuyenteId);
     if (filters.asignadoA) params.set("asignadoA", filters.asignadoA);
     if (filters.semaforo) params.set("semaforo", filters.semaforo);
@@ -250,6 +270,8 @@ export const api = {
     if (filters.pendientesAnalista) params.set("pendientesAnalista", "true");
     if (filters.desde) params.set("desde", filters.desde);
     if (filters.hasta) params.set("hasta", filters.hasta);
+    if (filters.sortBy) params.set("sortBy", filters.sortBy);
+    if (filters.sortDir) params.set("sortDir", filters.sortDir);
     return request<PaginatedResponse<CasoDto>>(`/api/v1/casos?${params}`);
   },
   assignCaso(casoId: string, asignadoA: string | null): Promise<CasoDto> {
@@ -318,6 +340,12 @@ export const api = {
       body: JSON.stringify({ motivo }),
     });
   },
+  archivarCaso(casoId: string, motivo?: string): Promise<CasoDto> {
+    return request<CasoDto>(`/api/v1/casos/${casoId}/archivar`, {
+      method: "POST",
+      body: JSON.stringify({ motivo }),
+    });
+  },
   reabrirCaso(casoId: string): Promise<CasoDto> {
     return request<CasoDto>(`/api/v1/casos/${casoId}/reabrir`, { method: "POST", body: "{}" });
   },
@@ -355,16 +383,25 @@ export const api = {
   },
   reiniciarFojaCero(
     casoId: string,
-    motivo?: string
+    opts?: { motivo?: string; reutilizarPreproceso?: boolean } | string
   ): Promise<{
+    casoId?: string;
+    casoNumero?: string;
     fichaArchivada: boolean;
     informesArchivados: number;
     documentosReencolados: number;
+    reutilizoPreproceso?: boolean;
+    documentosConPreprocesoReutilizado?: number;
+    documentosRepreprocesados?: number;
     caso?: CasoDto;
   }> {
+    const body =
+      typeof opts === "string"
+        ? { motivo: opts }
+        : { motivo: opts?.motivo, reutilizarPreproceso: opts?.reutilizarPreproceso };
     return request(`/api/v1/casos/${casoId}/reiniciar-foja-cero`, {
       method: "POST",
-      body: JSON.stringify({ motivo }),
+      body: JSON.stringify(body),
     });
   },
   confirmValidacion(casoId: string, validacionId: string, confirmada: boolean): Promise<{ id: string }> {
@@ -389,6 +426,7 @@ export const api = {
       canal?: string;
       observaciones?: string | null;
       prioridad?: number;
+      remitenteEmail?: string | null;
     }
   ): Promise<CasoDto> {
     return request<CasoDto>(`/api/v1/casos/${id}`, {
@@ -449,6 +487,41 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+  deleteCasoLinea(
+    casoId: string,
+    lineaId: string,
+    data?: { eliminarSimilares?: boolean }
+  ): Promise<{ eliminadas: number }> {
+    return request<{ eliminadas: number }>(`/api/v1/casos/${casoId}/lineas/${lineaId}`, {
+      method: "DELETE",
+      body: JSON.stringify(data ?? {}),
+    });
+  },
+  eliminarDuplicadosLineas(casoId: string): Promise<EliminarDuplicadosLineasResultDto> {
+    return request<EliminarDuplicadosLineasResultDto>(
+      `/api/v1/casos/${casoId}/lineas/eliminar-duplicados`,
+      { method: "POST", body: "{}" }
+    );
+  },
+  getBalanceAnalisis(
+    casoId: string,
+    opts?: { paginas?: number[]; diagnosticoIa?: boolean }
+  ): Promise<BalanceAnalisisDto> {
+    const params = new URLSearchParams();
+    if (opts?.paginas?.length) params.set("paginas", opts.paginas.join(","));
+    if (opts?.diagnosticoIa) params.set("ia", "1");
+    const q = params.toString() ? `?${params.toString()}` : "";
+    return request<BalanceAnalisisDto>(`/api/v1/casos/${casoId}/balance/analisis${q}`);
+  },
+  reconciliarBalance(
+    casoId: string,
+    opts?: { paginasObjetivo?: number[]; crearAjuste?: boolean }
+  ): Promise<ReconciliarBalanceResultDto> {
+    return request<ReconciliarBalanceResultDto>(`/api/v1/casos/${casoId}/balance/reconciliar`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    });
+  },
   createLineaManual(
     casoId: string,
     data: {
@@ -491,6 +564,11 @@ export const api = {
       { method: "POST", body: "{}" }
     );
   },
+  getClasificacionIaProgreso(casoId: string): Promise<ClasificacionIaProgresoDto> {
+    return request<ClasificacionIaProgresoDto>(
+      `/api/v1/casos/${casoId}/lineas/clasificacion-ia/progreso`
+    );
+  },
   reclasificarMasiva(
     casoId: string,
     data: { lineaOrigenId: string; rubroInstitucionalId: string; motivo?: string }
@@ -526,7 +604,13 @@ export const api = {
   },
   aprobarFicha(
     casoId: string,
-    data: { version: number; observaciones?: string; ignorarValidacionesPendientes?: boolean }
+    data: {
+      version: number;
+      observaciones?: string;
+      ignorarValidacionesPendientes?: boolean;
+      cierreParcial?: boolean;
+      motivoCierreParcial?: string;
+    }
   ): Promise<FichaCanonicaDto> {
     return request<FichaCanonicaDto>(`/api/v1/casos/${casoId}/aprobar-ficha`, {
       method: "POST",

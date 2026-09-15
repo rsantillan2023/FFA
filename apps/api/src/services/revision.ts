@@ -10,11 +10,14 @@ import {
   RubroInstitucionalModel,
   ValidacionResultadoModel,
   AuditoriaEventoModel,
+  registrarAuditoria,
   type CasoDocument,
   type LineaContableDocument,
 } from "@ffa/db";
 import {
   calcularConfianzaGlobal,
+  computeCuadraturaBalance,
+  lineasAlcanceBalance,
   normalizarDenominacion,
   validateCase,
   type RubroRef,
@@ -59,6 +62,7 @@ export async function revalidarCaso(casoId: string): Promise<{
   });
 
   const classified = lineasDb.map((l) => ({
+    id: l._id.toString(),
     denominacionOriginal: l.denominacionOriginal,
     montoOriginal: l.montoOriginal,
     paginaNumero: l.paginaNumero,
@@ -70,6 +74,8 @@ export async function revalidarCaso(casoId: string): Promise<{
     confianzaClasificacion: l.confianzaClasificacion ?? 0,
     requiereRevision: l.requiereRevision,
     origenClasificacion: l.origenClasificacion ?? undefined,
+    excluirDeCuadratura: l.excluirDeCuadratura ?? false,
+    motivoExclusionCuadratura: l.motivoExclusionCuadratura ?? undefined,
   }));
 
   const docFuente = await DocumentoFuenteModel.findOne({ casoId });
@@ -146,8 +152,12 @@ export async function revalidarCaso(casoId: string): Promise<{
     })
   );
 
+  const balanceCtx = computeCuadraturaBalance(classified, rubros);
+  const alcance = lineasAlcanceBalance(classified, balanceCtx.paginasBalanceObjetivo);
+  const baseConfianza =
+    balanceCtx.paginasBalanceObjetivo.length > 0 ? alcance : classified;
   const confianzaGlobal = calcularConfianzaGlobal(
-    classified.map((l) => ({
+    baseConfianza.map((l) => ({
       ...l,
       confianzaClasificacion: l.confianzaClasificacion ?? 0,
       requiereRevision: l.requiereRevision,
@@ -157,6 +167,9 @@ export async function revalidarCaso(casoId: string): Promise<{
   const hasMetaFail = metaValidaciones.some((v) => !v.passed && v.severidad !== "info");
   let semaforo = result.semaforo;
   if (hasMetaFail && semaforo === "verde") semaforo = "amarillo";
+  if (confianzaGlobal < (config?.umbralConfianza ?? 85) && semaforo === "verde") {
+    semaforo = "amarillo";
+  }
 
   caso.semaforo = semaforo;
   caso.confianzaGlobal = confianzaGlobal;
@@ -169,23 +182,68 @@ export async function revalidarCaso(casoId: string): Promise<{
   };
 }
 
-export async function recalcularConfianzaCaso(casoId: string): Promise<number> {
-  const lineas = await LineaContableModel.find({
-    casoId,
-    estado: { $in: [LineaEstado.CLASIFICADA, LineaEstado.APROBADA] },
-  });
-  const confianza = calcularConfianzaGlobal(
-    lineas.map((l) => ({
-      denominacionOriginal: l.denominacionOriginal,
-      montoOriginal: l.montoOriginal,
-      paginaNumero: l.paginaNumero,
-      denominacionNormalizada: l.denominacionNormalizada ?? l.denominacionOriginal,
-      montoNormalizado: l.montoNormalizado ?? l.montoOriginal,
-      signoAplicado: (l.signoAplicado ?? "positivo") as "positivo" | "negativo",
+function mapLineaDbAClassified(l: LineaContableDocument) {
+  return {
+    id: l._id.toString(),
+    denominacionOriginal: l.denominacionOriginal,
+    montoOriginal: l.montoOriginal,
+    paginaNumero: l.paginaNumero,
+    denominacionNormalizada: l.denominacionNormalizada ?? l.denominacionOriginal,
+    montoNormalizado: l.montoNormalizado ?? l.montoOriginal,
+    signoAplicado: (l.signoAplicado ?? "positivo") as "positivo" | "negativo",
+    rubroInstitucionalId: l.rubroInstitucionalId?.toString(),
+    rubroCodigo: l.rubroCodigo ?? undefined,
+    confianzaClasificacion: l.confianzaClasificacion ?? 0,
+    requiereRevision: l.requiereRevision,
+    origenClasificacion: l.origenClasificacion ?? undefined,
+    excluirDeCuadratura: l.excluirDeCuadratura ?? false,
+    motivoExclusionCuadratura: l.motivoExclusionCuadratura ?? undefined,
+  };
+}
+
+/** Misma base que revalidar: líneas clasificadas/aprobadas, alcance balance si aplica. */
+export async function calcularConfianzaClasificacionCaso(casoId: string): Promise<number> {
+  const caso = await CasoModel.findById(casoId).select("planCuentasVersionId");
+  if (!caso?.planCuentasVersionId) return 0;
+
+  const [lineasDb, rubrosDocs] = await Promise.all([
+    LineaContableModel.find({
+      casoId,
+      estado: { $in: [LineaEstado.CLASIFICADA, LineaEstado.APROBADA] },
+    }),
+    RubroInstitucionalModel.find({
+      planCuentasVersionId: caso.planCuentasVersionId,
+      activo: true,
+    }),
+  ]);
+
+  const classified = lineasDb.map(mapLineaDbAClassified);
+  if (classified.length === 0) return 0;
+
+  const rubros: RubroRef[] = rubrosDocs.map((r) => ({
+    id: r._id.toString(),
+    codigo: r.codigo,
+    nombre: r.nombre,
+    estadoFinanciero: r.estadoFinanciero,
+    convencionSigno: r.convencionSigno,
+  }));
+
+  const balanceCtx = computeCuadraturaBalance(classified, rubros);
+  const alcance = lineasAlcanceBalance(classified, balanceCtx.paginasBalanceObjetivo);
+  const baseConfianza =
+    balanceCtx.paginasBalanceObjetivo.length > 0 ? alcance : classified;
+
+  return calcularConfianzaGlobal(
+    baseConfianza.map((l) => ({
+      ...l,
       confianzaClasificacion: l.confianzaClasificacion ?? 0,
       requiereRevision: l.requiereRevision,
     }))
   );
+}
+
+export async function recalcularConfianzaCaso(casoId: string): Promise<number> {
+  const confianza = await calcularConfianzaClasificacionCaso(casoId);
   await CasoModel.findByIdAndUpdate(casoId, { confianzaGlobal: confianza });
   return confianza;
 }
@@ -224,7 +282,8 @@ export async function guardarCriterioDesdeLinea(
 export async function generarFichaAprobada(
   caso: CasoDocument,
   userId: string,
-  observaciones?: string
+  observaciones?: string,
+  opts?: { cierreParcial?: boolean; motivoCierreParcial?: string }
 ): Promise<string> {
   const lineas = await LineaContableModel.find({
     casoId: caso._id,
@@ -300,6 +359,8 @@ export async function generarFichaAprobada(
       aprobadaPor: new Types.ObjectId(userId),
       aprobadaAt: new Date(),
       observaciones,
+      cierreParcial: opts?.cierreParcial ?? false,
+      motivoCierreParcial: opts?.motivoCierreParcial,
     },
     { upsert: true, new: true }
   );
@@ -462,38 +523,13 @@ export function puedeAprobarFicha(
       motivos.push("Metadatos no confirmados por el analista (paso 1 de revisión)");
     }
 
-    const pendientes = await LineaContableModel.countDocuments({
-      casoId,
-      requiereRevision: true,
-      estado: { $ne: LineaEstado.APROBADA },
-    });
-    if (pendientes > 0) {
-      if (opts?.ignorarValidacionesPendientes) {
-        const pendientesSinRubro = await LineaContableModel.countDocuments({
-          casoId,
-          requiereRevision: true,
-          estado: { $ne: LineaEstado.APROBADA },
-          $and: [
-            {
-              $or: [
-                { rubroInstitucionalId: { $exists: false } },
-                { rubroInstitucionalId: null },
-              ],
-            },
-            {
-              $or: [
-                { clasificacionPropuesta: { $exists: false } },
-                { clasificacionPropuesta: null },
-              ],
-            },
-          ],
-        });
-        if (pendientesSinRubro > 0) {
-          motivos.push(
-            `${pendientesSinRubro} línea(s) pendientes sin rubro — asigná rubro antes de aprobar la ficha`
-          );
-        }
-      } else {
+    if (!opts?.ignorarValidacionesPendientes) {
+      const pendientes = await LineaContableModel.countDocuments({
+        casoId,
+        requiereRevision: true,
+        estado: { $ne: LineaEstado.APROBADA },
+      });
+      if (pendientes > 0) {
         motivos.push(`${pendientes} línea(s) pendientes de revisión`);
       }
     }
@@ -530,17 +566,108 @@ export function puedeAprobarFicha(
       motivos.push(`${sinTrazabilidad} línea(s) sin trazabilidad documento/página (P.13)`);
     }
 
-    const sinRubro = await LineaContableModel.countDocuments({
-      casoId,
-      estado: { $in: [LineaEstado.CLASIFICADA, LineaEstado.APROBADA] },
-      $or: [{ rubroInstitucionalId: { $exists: false } }, { rubroInstitucionalId: null }],
-    });
-    if (sinRubro > 0) {
-      motivos.push(`${sinRubro} línea(s) sin rubro institucional válido (X.2)`);
+    if (!opts?.ignorarValidacionesPendientes) {
+      const sinRubro = await LineaContableModel.countDocuments({
+        casoId,
+        estado: { $in: [LineaEstado.CLASIFICADA, LineaEstado.APROBADA] },
+        $or: [{ rubroInstitucionalId: { $exists: false } }, { rubroInstitucionalId: null }],
+      });
+      if (sinRubro > 0) {
+        motivos.push(`${sinRubro} línea(s) sin rubro institucional válido (X.2)`);
+      }
     }
 
     return { ok: motivos.length === 0, motivos };
   })();
+}
+
+function lineaDuplicadoKey(linea: LineaContableDocument): string {
+  const denom =
+    linea.denominacionNormalizada ?? normalizarDenominacion(linea.denominacionOriginal);
+  const monto = linea.montoNormalizado ?? linea.montoOriginal;
+  return `${denom}\0${monto}`;
+}
+
+function puntuacionConservarLinea(linea: LineaContableDocument): number {
+  let score = 0;
+  if (linea.rubroInstitucionalId) score += 10_000;
+  if (linea.estado === LineaEstado.APROBADA) score += 5_000;
+  score += (linea.confianzaClasificacion ?? 0) * 10;
+  score += linea.confianzaExtraccion ?? 0;
+  return score;
+}
+
+/** Elimina líneas duplicadas (mismo concepto normalizado y monto), conservando la mejor clasificada por grupo. */
+export async function eliminarLineasDuplicadas(
+  casoId: string,
+  userId: string
+): Promise<{ eliminadas: number; grupos: number; conservadas: number }> {
+  await assertFichaEditable(casoId);
+
+  const lineas = await LineaContableModel.find({ casoId });
+  const grupos = new Map<string, LineaContableDocument[]>();
+
+  for (const linea of lineas) {
+    const key = lineaDuplicadoKey(linea);
+    const list = grupos.get(key) ?? [];
+    list.push(linea);
+    grupos.set(key, list);
+  }
+
+  const idsEliminar: string[] = [];
+  let gruposConDuplicados = 0;
+
+  for (const miembros of grupos.values()) {
+    if (miembros.length <= 1) continue;
+    gruposConDuplicados += 1;
+
+    const ordenadas = [...miembros].sort((a, b) => {
+      const diff = puntuacionConservarLinea(b) - puntuacionConservarLinea(a);
+      if (diff !== 0) return diff;
+      return a._id.toString().localeCompare(b._id.toString());
+    });
+
+    for (const dup of ordenadas.slice(1)) {
+      idsEliminar.push(dup._id.toString());
+    }
+  }
+
+  if (idsEliminar.length === 0) {
+    return { eliminadas: 0, grupos: 0, conservadas: lineas.length };
+  }
+
+  const res = await LineaContableModel.deleteMany({
+    _id: { $in: idsEliminar },
+    casoId,
+  });
+
+  const caso = await CasoModel.findById(casoId);
+  if (caso) {
+    caso.version = (caso.version ?? 0) + 1;
+    await caso.save();
+  }
+
+  await recalcularConfianzaCaso(casoId);
+  await revalidarCaso(casoId);
+
+  await registrarAuditoria({
+    actorTipo: "usuario",
+    actorId: userId,
+    casoId,
+    entidad: "linea_contable",
+    accion: "lineas_duplicadas_eliminadas",
+    payload: {
+      eliminadas: res.deletedCount ?? idsEliminar.length,
+      grupos: gruposConDuplicados,
+      lineaIds: idsEliminar,
+    },
+  });
+
+  return {
+    eliminadas: res.deletedCount ?? idsEliminar.length,
+    grupos: gruposConDuplicados,
+    conservadas: lineas.length - (res.deletedCount ?? idsEliminar.length),
+  };
 }
 
 export { CasoEstado };

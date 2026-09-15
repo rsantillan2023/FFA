@@ -347,7 +347,19 @@ async function seedReglas(rubrosByCodigo: Map<string, string>): Promise<string> 
     { id: "r-cxc", prioridad: 11, patron: "cuentas por cobrar", codigo: "1.2.03" },
     { id: "r-activos-fin", prioridad: 12, patron: "investments in financial", codigo: "1.2.02" },
     { id: "r-imp-dif-activo", prioridad: 13, patron: "deferred income tax asset", codigo: "1.1.07" },
-    { id: "r-provision-nc", prioridad: 14, patron: "provisions non", codigo: "2.1.01" },
+    { id: "r-imp-corr-activo", prioridad: 13, patron: "activos por impuestos corrientes", codigo: "1.2.09" },
+    { id: "r-otros-act-nc", prioridad: 14, patron: "otros activos no financieros no corrientes", codigo: "1.1.09" },
+    { id: "r-otros-act-c", prioridad: 15, patron: "otros activos no financieros corrientes", codigo: "1.2.08" },
+    { id: "r-prop-inversion", prioridad: 16, patron: "propiedad de inversion", codigo: "1.1.10" },
+    { id: "r-deriv-activo-c", prioridad: 17, patron: "contratos de derivados", codigo: "1.2.10" },
+    { id: "r-pas-fin-c", prioridad: 18, patron: "otros pasivos financieros corrientes", codigo: "2.2.10" },
+    { id: "r-pas-fin-nc", prioridad: 19, patron: "otros pasivos financieros no corrientes", codigo: "2.1.11" },
+    { id: "r-depositos", prioridad: 20, patron: "depositos y otras obligaciones", codigo: "2.2.12" },
+    { id: "r-otras-reservas", prioridad: 21, patron: "otras reservas", codigo: "3.6" },
+    { id: "r-primas", prioridad: 22, patron: "primas de emision", codigo: "3.7" },
+    { id: "r-res-fx", prioridad: 23, patron: "diferencias de cambio", codigo: "3.8" },
+    { id: "r-unidades-reaj", prioridad: 24, patron: "unidades de reajuste", codigo: "3.10" },
+    { id: "r-provision-nc", prioridad: 25, patron: "provisions non", codigo: "2.1.01" },
     { id: "r-provision", prioridad: 15, patron: "provision", codigo: "2.2.01" },
     { id: "r-lease-nc", prioridad: 16, patron: "lease liabilities non", codigo: "2.1.07" },
     { id: "r-lease", prioridad: 17, patron: "lease liabilit", codigo: "2.2.06" },
@@ -377,8 +389,11 @@ async function seedReglas(rubrosByCodigo: Map<string, string>): Promise<string> 
     { id: "r-imp-gan", prioridad: 41, patron: "income tax", codigo: "4.11" },
     { id: "r-utilidad-en", prioridad: 42, patron: "net profit or loss", codigo: "4.12" },
     { id: "r-utilidad", prioridad: 43, patron: "utilidad del ejercicio", codigo: "4.12" },
-    { id: "r-nota-caja", prioridad: 44, patron: "fondos fijos", codigo: "1.2.01" },
-    { id: "r-nota-ppe", prioridad: 45, patron: "nota explicativa", codigo: "1.1.02" },
+    { id: "r-ganancia", prioridad: 44, patron: "ganancia (perdida)", codigo: "4.12" },
+    { id: "r-gastos-func", prioridad: 45, patron: "otros gastos por funcion", codigo: "4.7" },
+    { id: "r-asoc-gan", prioridad: 46, patron: "participacion en ganancias de asociadas", codigo: "4.9" },
+    { id: "r-nota-caja", prioridad: 47, patron: "fondos fijos", codigo: "1.2.01" },
+    { id: "r-nota-ppe", prioridad: 48, patron: "nota explicativa", codigo: "1.1.02" },
   ];
 
   const reglasPayload = reglasDef
@@ -514,7 +529,11 @@ export async function runSeed(options: {
   const indicadoresVersionId = await seedIndicadores();
   const plantillaVersionId = await seedPlantillaInforme();
 
-  const extractionProvider = process.env.OPENAI_API_KEY?.trim() ? "openai" : "mock";
+  const extractionProvider = process.env.ANTHROPIC_API_KEY?.trim()
+    ? "anthropic"
+    : process.env.OPENAI_API_KEY?.trim()
+      ? "openai"
+      : "mock";
 
   await ConfiguracionSistemaModel.findByIdAndUpdate(
     CONFIG_SISTEMA_ID,

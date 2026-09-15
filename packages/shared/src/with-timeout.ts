@@ -21,12 +21,19 @@ export function withTimeout<T>(
   });
 }
 
+function readEnvVar(name: string): string | undefined {
+  if (typeof process !== "undefined" && process.env?.[name]) {
+    return process.env[name];
+  }
+  return undefined;
+}
+
 export function readEnvTimeoutMs(
   primary: string,
   fallbackMs: number,
   secondary?: string
 ): number {
-  const raw = process.env[primary] ?? (secondary ? process.env[secondary] : undefined);
+  const raw = readEnvVar(primary) ?? (secondary ? readEnvVar(secondary) : undefined);
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : fallbackMs;
 }

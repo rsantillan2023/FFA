@@ -5,10 +5,14 @@ import {
   ValidacionResultadoModel,
 } from "@ffa/db";
 import {
+  CasoEstado,
   semaforoDesdeConfianza,
+  semaforoEfectivo,
   type ConfianzaResumenDto,
   type SemaforoConfianza,
 } from "@ffa/shared";
+import { calcularConfianzaClasificacionCaso } from "./revision.js";
+import { buildProvenanceCaso } from "./provenance-caso.js";
 
 function normalizarPctExtraccion(val: number | null | undefined): number | null {
   if (val == null || Number.isNaN(val)) return null;
@@ -66,10 +70,16 @@ function buildMensajes(input: {
     };
   }
 
-  if (validacionesTotal > 0 && validacionesFallidas >= Math.ceil(validacionesTotal / 2)) {
+  if (confianzaClasificacion != null && confianzaClasificacion >= 85) {
+    if (validacionesFallidas > 0) {
+      return {
+        mensajePrincipal: "Clasificación sólida al plan de cuentas",
+        mensajeSecundario: `${lineasAltaConfianza} líneas con confianza ≥ 85%. Pendiente: ${validacionesFallidas} validación(es) contable(s).`,
+      };
+    }
     return {
-      mensajePrincipal: `${validacionesFallidas} validaciones contables fallidas`,
-      mensajeSecundario: "Cuadraturas o controles cruzados con diferencias respecto al documento.",
+      mensajePrincipal: "Clasificación sólida al plan de cuentas",
+      mensajeSecundario: `${lineasAltaConfianza} líneas con confianza ≥ 85%.`,
     };
   }
 
@@ -86,10 +96,16 @@ function buildMensajes(input: {
     };
   }
 
-  if (confianzaClasificacion != null && confianzaClasificacion >= 85) {
+  if (validacionesTotal > 0 && validacionesFallidas >= Math.ceil(validacionesTotal / 2)) {
+    if (confianzaClasificacion != null && confianzaClasificacion >= 50) {
+      return {
+        mensajePrincipal: "Clasificación aceptable — revisar cuadratura y controles",
+        mensajeSecundario: `${validacionesFallidas} validación(es) contable(s) con diferencias respecto al documento.`,
+      };
+    }
     return {
-      mensajePrincipal: "Clasificación sólida al plan de cuentas",
-      mensajeSecundario: `${lineasAltaConfianza} líneas con confianza ≥ 85%.`,
+      mensajePrincipal: `${validacionesFallidas} validaciones contables fallidas`,
+      mensajeSecundario: "Cuadraturas o controles cruzados con diferencias respecto al documento.",
     };
   }
 
@@ -107,17 +123,19 @@ function buildMensajes(input: {
 }
 
 export async function buildConfianzaResumen(casoId: string): Promise<ConfianzaResumenDto | null> {
-  const caso = await CasoModel.findById(casoId).select("confianzaGlobal semaforo");
+  const caso = await CasoModel.findById(casoId).select("confianzaGlobal semaforo estado");
   if (!caso) return null;
 
-  const [lineas, validaciones, documento] = await Promise.all([
+  const [lineas, validaciones, documento, confianzaViva, provenance] = await Promise.all([
     LineaContableModel.find({ casoId }).select(
-      "confianzaClasificacion confianzaExtraccion rubroInstitucionalId requiereRevision"
+      "confianzaClasificacion confianzaExtraccion rubroInstitucionalId requiereRevision origenClasificacion"
     ),
     ValidacionResultadoModel.find({ casoId }).select("passed"),
     DocumentoFuenteModel.findOne({ casoId })
       .sort({ createdAt: -1 })
       .select("extractPayload.informeExtraccion.confianzaGlobal"),
+    calcularConfianzaClasificacionCaso(casoId),
+    buildProvenanceCaso(casoId),
   ]);
 
   const totalLineas = lineas.length;
@@ -128,13 +146,14 @@ export async function buildConfianzaResumen(casoId: string): Promise<ConfianzaRe
     (l) => (l.confianzaClasificacion ?? 0) >= 85 && !!l.rubroInstitucionalId
   ).length;
 
-  const confianzaClasificacion =
-    caso.confianzaGlobal ??
-    (totalLineas
-      ? Math.round(
-          lineas.reduce((acc, l) => acc + (l.confianzaClasificacion ?? 0), 0) / totalLineas
-        )
-      : null);
+  const confianzaClasificacion = confianzaViva > 0 ? confianzaViva : caso.confianzaGlobal ?? null;
+
+  if (
+    confianzaClasificacion != null &&
+    confianzaClasificacion !== caso.confianzaGlobal
+  ) {
+    await CasoModel.findByIdAndUpdate(casoId, { confianzaGlobal: confianzaClasificacion });
+  }
 
   const extracciones = lineas
     .map((l) => normalizarPctExtraccion(l.confianzaExtraccion))
@@ -157,13 +176,25 @@ export async function buildConfianzaResumen(casoId: string): Promise<ConfianzaRe
     lineasAltaConfianza,
   });
 
+  let confianzaInformeExtraccion = informeExtraccionPct(documento);
+
+  /** En revisión manual el snapshot post-lectura del PDF no aporta al ciclo del analista. */
+  if (caso.estado === CasoEstado.EN_REVISION) {
+    confianzaInformeExtraccion = null;
+  }
+
+  const semaforoClasificacion = (semaforoDesdeConfianza(confianzaClasificacion) ??
+    null) as SemaforoConfianza | null;
+  const semaforoValidacion = (caso.semaforo ?? null) as SemaforoConfianza | null;
+
   return {
     casoId,
     confianzaClasificacion,
     confianzaExtraccion,
-    confianzaInformeExtraccion: informeExtraccionPct(documento),
-    semaforoClasificacion: (semaforoDesdeConfianza(confianzaClasificacion) ?? null) as SemaforoConfianza | null,
-    semaforoValidacion: caso.semaforo ?? null,
+    confianzaInformeExtraccion,
+    semaforoClasificacion,
+    semaforoValidacion,
+    semaforoEfectivo: semaforoEfectivo(semaforoClasificacion, semaforoValidacion) ?? null,
     totalLineas,
     lineasConRubro,
     lineasSinRubro,
@@ -174,5 +205,6 @@ export async function buildConfianzaResumen(casoId: string): Promise<ConfianzaRe
     validacionesTotal: validaciones.length,
     mensajePrincipal,
     mensajeSecundario,
+    provenance,
   };
 }

@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: `http://localhost:${apiPort}`,
           changeOrigin: true,
+          timeout: 600_000,
         },
         "/health": {
           target: `http://localhost:${apiPort}`,

@@ -8,4 +8,5 @@ export {
   type InfraConfig,
 } from "./config.js";
 export { loadRootEnv } from "./env.js";
+export { getMonorepoRoot, resolveLocalStoragePath } from "./paths.js";
 export { resolveMongoUri, stopMemoryMongo } from "./mongo.js";

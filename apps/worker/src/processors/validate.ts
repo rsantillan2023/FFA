@@ -5,14 +5,22 @@ import {
   LineaContableModel,
   RubroInstitucionalModel,
   ValidacionResultadoModel,
+  ejecutarPreRevisionCaso,
   registrarAuditoria,
   transicionarCaso,
 } from "@ffa/db";
-import { validateCase, type RubroRef } from "@ffa/pipeline";
+import {
+  calcularConfianzaGlobal,
+  computeCuadraturaBalance,
+  lineasAlcanceBalance,
+  validateCase,
+  type RubroRef,
+} from "@ffa/pipeline";
 import type { ValidateJobData } from "@ffa/queue";
 import { CONFIG_SISTEMA_ID, CasoEstado, LineaEstado } from "@ffa/shared";
 import type { Job } from "bullmq";
 import { notificarRevisionAnalista } from "../lib/notificaciones.js";
+import { skipSiPipelineObsoleto } from "../lib/pipeline-run.js";
 import { assertCasoNoPausado } from "../lib/pausa.js";
 import { actualizarProgresoCaso } from "../lib/progreso.js";
 
@@ -20,6 +28,7 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
   const { casoId } = job.data;
 
   await assertCasoNoPausado(casoId);
+  if (await skipSiPipelineObsoleto(casoId, job.data.runId, (m) => job.log(m))) return;
   await transicionarCaso(casoId, CasoEstado.VALIDANDO, { nota: `Job ${job.id}` });
   await actualizarProgresoCaso(casoId, "validate");
 
@@ -41,6 +50,7 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
 
   const lineasDb = await LineaContableModel.find({ casoId, estado: LineaEstado.CLASIFICADA });
   const classified = lineasDb.map((l) => ({
+    id: l._id.toString(),
     denominacionOriginal: l.denominacionOriginal,
     montoOriginal: l.montoOriginal,
     paginaNumero: l.paginaNumero,
@@ -52,6 +62,8 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
     confianzaClasificacion: l.confianzaClasificacion ?? 0,
     requiereRevision: l.requiereRevision,
     origenClasificacion: l.origenClasificacion ?? undefined,
+    excluirDeCuadratura: l.excluirDeCuadratura ?? false,
+    motivoExclusionCuadratura: l.motivoExclusionCuadratura ?? undefined,
   }));
 
   const result = validateCase(
@@ -80,7 +92,17 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
   );
 
   const umbral = config?.umbralConfianza ?? 85;
-  const confianzaGlobal = caso.confianzaGlobal ?? 0;
+  const balanceCtx = computeCuadraturaBalance(classified, rubros);
+  const alcance = lineasAlcanceBalance(classified, balanceCtx.paginasBalanceObjetivo);
+  const baseConfianza =
+    balanceCtx.paginasBalanceObjetivo.length > 0 ? alcance : classified;
+  const confianzaGlobal = calcularConfianzaGlobal(
+    baseConfianza.map((l) => ({
+      ...l,
+      confianzaClasificacion: l.confianzaClasificacion ?? 0,
+      requiereRevision: l.requiereRevision,
+    }))
+  );
   let semaforo = result.semaforo;
 
   if (confianzaGlobal < umbral) {
@@ -95,6 +117,7 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
     result.cuadraturaOk;
 
   caso.semaforo = semaforo;
+  caso.confianzaGlobal = confianzaGlobal;
   caso.elegibleAutoAprobacion = elegibleAutoAprobacion;
   caso.umbralAplicado = umbral;
   await caso.save();
@@ -117,19 +140,31 @@ export async function processValidate(job: Job<ValidateJobData>): Promise<void> 
     },
   });
 
+  await actualizarProgresoCaso(casoId, "pre_revision", 92);
+  job.log("Pre-revisión: limpieza, cuadratura e IA…");
+
+  const preRev = await ejecutarPreRevisionCaso(casoId, {
+    iaAutomatica: config?.preRevisionIaAutomatica ?? true,
+    crearAjusteBalance: false,
+  });
+
+  const casoFinal = await CasoModel.findById(casoId);
+  const semaforoFinal = casoFinal?.semaforo ?? preRev.semaforo;
+  const autoListo = casoFinal?.elegibleAutoAprobacion ?? false;
+
   await transicionarCaso(casoId, CasoEstado.EN_REVISION, {
-    nota: `Semáforo ${result.semaforo} — listo para revisión analista`,
+    nota: `Pre-revisión OK — semáforo ${semaforoFinal}, ${preRev.ruidoEliminado} ruido, cuadratura ${preRev.cuadraturaOk ? "OK" : "pendiente"}`,
   });
   await actualizarProgresoCaso(casoId, "en_revision", 100);
-
-  const autoListo = elegibleAutoAprobacion;
 
   await notificarRevisionAnalista({
     casoNumero: caso.numero,
     casoId,
-    semaforo: result.semaforo,
+    semaforo: semaforoFinal,
     autoListo,
   });
 
-  job.log(`Validate OK semáforo=${result.semaforo}`);
+  job.log(
+    `Validate+PreRev OK semáforo=${semaforoFinal} ruido=${preRev.ruidoEliminado} ia=${preRev.ia.actualizadas}`
+  );
 }

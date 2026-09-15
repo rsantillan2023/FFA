@@ -8,7 +8,7 @@ export function anthropicDisponible(env: { anthropicKey?: string | null } = {}):
   return Boolean((env.anthropicKey ?? process.env.ANTHROPIC_API_KEY)?.trim());
 }
 
-/** Usa OpenAI cuando hay API key; Anthropic como alternativa o fallback en extractDocument. */
+/** Anthropic primero si hay API key; OpenAI como alternativa explícita o fallback. */
 export function resolveExtractionProvider(
   configured: ExtractionProviderName | undefined,
   env: { openaiKey?: string | null; anthropicKey?: string | null } = {}
@@ -16,13 +16,14 @@ export function resolveExtractionProvider(
   const hasOpenAi = openAiDisponible(env);
   const hasAnthropic = anthropicDisponible(env);
 
-  if (configured === "anthropic") return hasAnthropic ? "anthropic" : "mock";
+  if (configured === "anthropic") return hasAnthropic ? "anthropic" : hasOpenAi ? "openai" : "mock";
   if (configured === "openai") {
     if (hasOpenAi) return "openai";
     if (hasAnthropic) return "anthropic";
     return "mock";
   }
-  if (hasOpenAi) return "openai";
+  if (configured === "mock") return "mock";
   if (hasAnthropic) return "anthropic";
-  return configured ?? "mock";
+  if (hasOpenAi) return "openai";
+  return "mock";
 }

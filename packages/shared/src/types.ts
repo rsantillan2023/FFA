@@ -214,6 +214,15 @@ export interface CasoContribuyenteResumenDto {
   rut?: string;
 }
 
+/** Totales de cuadratura (misma lógica que /revision). */
+export interface CasoCuadraturaTotalesDto {
+  activo: number;
+  pasivo: number;
+  patrimonio: number;
+  /** Activo − (pasivo + patrimonio). */
+  diferencia: number;
+}
+
 export interface CasoDto {
   id: string;
   numero: string;
@@ -228,6 +237,12 @@ export interface CasoDto {
   documentosCount?: number;
   semaforo?: "verde" | "amarillo" | "rojo";
   confianzaGlobal?: number;
+  /** true si Activo = Pasivo + Patrimonio dentro de tolerancia (última validación). */
+  cuadraturaOk?: boolean;
+  /** % de diferencia de cuadratura (0 si cuadra). */
+  diferenciaCuadraturaPct?: number;
+  /** Montos que componen la cuadratura en bandeja (clic en Δ Cuad.). */
+  cuadraturaTotales?: CasoCuadraturaTotalesDto;
   elegibleAutoAprobacion?: boolean;
   moneda?: string;
   escala?: string;
@@ -235,6 +250,8 @@ export interface CasoDto {
   hasInforme?: boolean;
   version?: number;
   observaciones?: string;
+  /** Correo del remitente para acuse y notificaciones (primer documento del caso). */
+  remitenteEmail?: string;
   tiempos?: CasoTiemposDto;
   procesamientoPausado?: boolean;
   prioridad?: number;
@@ -243,6 +260,22 @@ export interface CasoDto {
   metadatosVerificados?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Sub-fase dentro de un paso AA (p. ej. cola → preproceso → extracción en AA.2). */
+export type PipelineSubPasoEstado = "listo" | "en_curso" | "espera" | "pendiente";
+
+export interface PipelineSubPasoDto {
+  id: "cola" | "preprocess" | "extract";
+  label: string;
+  estado: PipelineSubPasoEstado;
+  /** Resultado concreto al terminar o avance parcial. */
+  resultado?: string;
+  /** Solo cola: segundos esperando turno (no es trabajo activo). */
+  esperaSegundos?: number;
+  /** Segundos con trabajo activo en esta sub-fase. */
+  trabajoSegundos?: number;
+  detalle?: string;
 }
 
 export interface PipelineEtapaDto {
@@ -258,8 +291,14 @@ export interface PipelineEtapaDto {
   progresoPct?: number;
   /** Duración en segundos (cerrado) o tiempo transcurrido si sigue en curso. */
   duracionSegundos?: number;
+  /** Segundos de espera en cola dentro del paso (no cuenta como trabajo). */
+  esperaSegundos?: number;
+  /** Segundos de trabajo activo en la sub-fase actual del paso. */
+  trabajoSegundos?: number;
   /** Paso activo según estado actual del caso (fuente de verdad para la UI). */
   enCurso?: boolean;
+  /** Desglose técnico cuando el paso tiene varias fases (AA.2 lectura). */
+  subPasos?: PipelineSubPasoDto[];
 }
 
 export interface PipelineEtapaDetalleItemDto {
@@ -327,6 +366,7 @@ export interface DocumentoFuenteDto {
   nombreOriginal: string;
   mimeType: string;
   canal: string;
+  remitenteEmail?: string;
   calidadOrigen: string;
   paginaCount: number;
   tamanoBytes?: number;
@@ -342,6 +382,11 @@ export interface DocumentoFuenteDto {
     progresoPct?: number;
     ultimoError?: string;
     ultimoErrorCodigo?: string;
+  };
+  /** Páginas derivadas del preproceso (PNG/JPEG) — solo nombres, no rutas internas. */
+  derivados?: {
+    paginas?: Array<{ nombre: string }>;
+    tieneMiniatura?: boolean;
   };
   createdAt: string;
 }
@@ -379,13 +424,61 @@ export interface ClasificacionIaMasivaResultDto {
   procesadas: number;
   actualizadas: number;
   errores: number;
+  /** Líneas ya clasificadas por IA en una corrida anterior — no se volvieron a enviar al modelo. */
+  omitidas?: number;
   detalle: ClasificacionIaMasivaDetalleDto[];
+}
+
+export type ClasificacionIaLote = "sin_rubro" | "baja_confianza";
+
+/** Evento en tiempo real de clasificación IA masiva (una línea). */
+export interface ClasificacionIaLineaEventoDto {
+  lineaId: string;
+  denominacionOriginal: string;
+  estado: "procesando" | "ok" | "error";
+  rubroCodigo?: string;
+  rubroNombre?: string;
+  confianza?: number;
+  error?: string;
+  at: string;
+}
+
+export interface ClasificacionIaProgresoDto {
+  casoId: string;
+  activo: boolean;
+  estado: "idle" | "en_curso" | "completado" | "error";
+  total: number;
+  procesadas: number;
+  actualizadas: number;
+  errores: number;
+  loteSinRubro?: number;
+  loteBajaConfianza?: number;
+  lote?: ClasificacionIaLote;
+  loteActual?: number;
+  loteTotalLineas?: number;
+  loteProcesadas?: number;
+  lineaId?: string;
+  denominacionOriginal?: string;
+  /** Línea que la IA está procesando ahora mismo. */
+  lineaEnCurso?: ClasificacionIaLineaEventoDto;
+  /** Últimas líneas clasificadas en esta corrida (más reciente primero). */
+  ultimasLineas?: ClasificacionIaLineaEventoDto[];
+  mensaje?: string;
+  error?: string;
+  resultado?: ClasificacionIaMasivaResultDto;
+  actualizadoEn: string;
 }
 
 export interface ResolverPendientesRevisionDto {
   lineasAprobadas: number;
   lineasSinRubro: number;
   validacionesConfirmadas: number;
+}
+
+export interface EliminarDuplicadosLineasResultDto {
+  eliminadas: number;
+  grupos: number;
+  conservadas: number;
 }
 
 export interface LineaContableDto {
@@ -404,9 +497,58 @@ export interface LineaContableDto {
   confianzaClasificacion?: number;
   requiereRevision: boolean;
   origenClasificacion?: string;
+  /** ISO 8601 — última clasificación IA en revisión; si existe, la línea no entra al lote dudoso. */
+  clasificacionIaAt?: string;
+  clasificacionIaRazonamiento?: string;
   candidatosAsistidos?: CandidatoAsistidoDto[];
   estado: LineaEstado;
+  excluirDeCuadratura?: boolean;
+  motivoExclusionCuadratura?: string;
   bbox?: { x: number; y: number; w: number; h: number };
+}
+
+export interface TestigoBalanceDto {
+  paginaNumero: number;
+  totalActivo: number;
+  totalPasivoPatrimonio: number;
+  cuadra: boolean;
+}
+
+export interface BalanceAnalisisDto {
+  testigos: TestigoBalanceDto[];
+  testigoRecomendado: TestigoBalanceDto | null;
+  paginasBalanceObjetivo: number[];
+  totales: {
+    activo: number;
+    pasivo: number;
+    patrimonio: number;
+    resultados: number;
+    cuadraturaOk: boolean;
+    diferencia: number;
+  };
+  conteos: Record<string, number>;
+  paresEscala: number;
+  patrimonioMalEnPasivo: number;
+  /** Activo sumado en cuadratura << total activo del PDF. */
+  activoIncompleto?: boolean;
+  ratioActivoVsTestigo?: number | null;
+  /** Diagnóstico IA opcional cuando la cuadratura no cierra (F3). */
+  diagnosticoIa?: {
+    resumen: string;
+    causasProbables: string[];
+    accionesSugeridas: string[];
+  };
+}
+
+export interface ReconciliarBalanceResultDto {
+  analisis: BalanceAnalisisDto;
+  accionesAplicadas: number;
+  lineasEliminadas: number;
+  lineasExcluidas: number;
+  lineasIncluidas: number;
+  lineasReclasificadas: number;
+  ajusteCreado: boolean;
+  mensaje: string;
 }
 
 export interface UmbralHistorialDto {
@@ -434,6 +576,8 @@ export interface RubroOptionDto {
   nombre: string;
   estadoFinanciero: string;
   convencionSigno?: "normal" | "invertido";
+  /** false = rubro referenciado en líneas pero no imputable (agrupador); solo resolución/cuadratura. */
+  asignable?: boolean;
 }
 
 export interface FichaCanonicaDto {
@@ -456,6 +600,8 @@ export interface FichaCanonicaDto {
     detalle?: { codigo: string; nombre?: string; monto: number; lineasIds?: string[] }[];
   };
   observaciones?: string;
+  cierreParcial?: boolean;
+  motivoCierreParcial?: string;
 }
 
 export interface IndicadorCalculadoDto {
@@ -774,6 +920,30 @@ export interface IaLlamadaResumenDto {
   }>;
 }
 
+/** Trazabilidad IA vs heurística expuesta al analista (F4). */
+export interface ProvenanceCasoDto {
+  extraccion?: {
+    seleccionPaginas: "claude_map" | "pdf_corto_completo" | "heuristica" | "todas";
+    paginasPdfTotal: number;
+    paginasEnviadasVision: number;
+    paginasOmitidasVision: number;
+    complementoHeuristico: boolean;
+    lineasOmitidasEstimadas: number;
+    textoNativoPrimario?: boolean;
+  };
+  clasificacion?: {
+    iaPrimaria: number;
+    semanticaFallback: number;
+    regla: number;
+    criterioContribuyente: number;
+    manual: number;
+    otro: number;
+  };
+  usaFallbackHeuristico: boolean;
+  bannerMensaje?: string;
+  bannerTipo?: "info" | "warning";
+}
+
 /** Desglose iconográfico del semáforo de confianza (clasificación + calidad del caso). */
 export interface ConfianzaResumenDto {
   casoId: string;
@@ -781,10 +951,15 @@ export interface ConfianzaResumenDto {
   confianzaClasificacion: number | null;
   /** Promedio de confianzaExtraccion (0–100). */
   confianzaExtraccion: number | null;
-  /** Confianza del informe de extracción post-proceso (0–100), si existe. */
+  /**
+   * Calidad post-lectura del PDF (informeExtraccion del pipeline, 0–100).
+   * No es el informe de comité. Omitido mientras el caso está en revisión manual.
+   */
   confianzaInformeExtraccion?: number | null;
   semaforoClasificacion: "verde" | "amarillo" | "rojo" | null;
   semaforoValidacion?: string | null;
+  /** Semáforo combinado (clasificación + validación contable). */
+  semaforoEfectivo?: "verde" | "amarillo" | "rojo" | null;
   totalLineas: number;
   lineasConRubro: number;
   lineasSinRubro: number;
@@ -795,4 +970,5 @@ export interface ConfianzaResumenDto {
   validacionesTotal: number;
   mensajePrincipal: string;
   mensajeSecundario?: string;
+  provenance?: ProvenanceCasoDto;
 }

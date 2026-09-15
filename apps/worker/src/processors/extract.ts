@@ -12,6 +12,7 @@ import {
   ExtractValidationError,
   enrichExtractResult,
   extractDocument,
+  normalizarDenominacion,
   normalizarPeriodo,
   resolveExtractionProvider,
   runWithIaContext,
@@ -32,6 +33,7 @@ import { enqueueNormalize } from "../lib/enqueue.js";
 import { aplicarIdentidadCasoExtract } from "../lib/identidad-caso.js";
 import { notificarFalloCalidad } from "../lib/notificaciones.js";
 import { actualizarProgresoCaso } from "../lib/progreso.js";
+import { skipSiPipelineObsoleto } from "../lib/pipeline-run.js";
 import { assertCasoNoPausado } from "../lib/pausa.js";
 import { getDocumentoBuffer } from "../lib/storage.js";
 
@@ -137,14 +139,19 @@ async function runExtract(job: Job<ExtractJobData>): Promise<void> {
   const { casoId, documentoId } = job.data;
 
   await assertCasoNoPausado(casoId);
+  if (await skipSiPipelineObsoleto(casoId, job.data.runId, (m) => job.log(m))) return;
   await transicionarCaso(casoId, CasoEstado.EXTRAYENDO, { nota: `Job ${job.id}` });
   await actualizarProgresoCaso(casoId, "extract", undefined, documentoId);
   job.log(`Extract iniciado caso=${casoId} doc=${documentoId}`);
 
   const config = await ConfiguracionSistemaModel.findById(CONFIG_SISTEMA_ID);
+  const umbralConfianza = config?.umbralConfianza ?? 85;
   const provider = resolveExtractionProvider(
     config?.extractionProvider as ExtractionProviderName | undefined,
-    { openaiKey: process.env.OPENAI_API_KEY }
+    {
+      openaiKey: process.env.OPENAI_API_KEY,
+      anthropicKey: process.env.ANTHROPIC_API_KEY,
+    }
   );
   const maxRetries = getMaxRetries(
     config?.reintentosMaxPorEtapa as Map<string, number> | undefined,
@@ -267,8 +274,17 @@ async function runExtract(job: Job<ExtractJobData>): Promise<void> {
 
   await LineaContableModel.deleteMany({ casoId, documentoId });
 
+  const lineasUnicas: typeof result.lineas = [];
+  const vistoConceptoMonto = new Set<string>();
+  for (const linea of result.lineas) {
+    const key = `${normalizarDenominacion(linea.denominacionOriginal)}|${linea.montoOriginal}`;
+    if (vistoConceptoMonto.has(key)) continue;
+    vistoConceptoMonto.add(key);
+    lineasUnicas.push(linea);
+  }
+
   await LineaContableModel.insertMany(
-    result.lineas.map((linea) => ({
+    lineasUnicas.map((linea) => ({
       casoId,
       documentoId,
       paginaNumero: linea.paginaNumero,
@@ -279,7 +295,9 @@ async function runExtract(job: Job<ExtractJobData>): Promise<void> {
       montoOriginal: linea.montoOriginal,
       confianzaExtraccion: linea.confianzaExtraccion ?? 80,
       estado: LineaEstado.CRUDA,
-      requiereRevision: false,
+      requiereRevision:
+        linea.requiereRevision === true ||
+        (linea.confianzaExtraccion ?? 80) < umbralConfianza,
     }))
   );
 
@@ -290,7 +308,8 @@ async function runExtract(job: Job<ExtractJobData>): Promise<void> {
     accion: "extraccion_completada",
     payload: {
       documentoId,
-      lineasCount: result.lineas.length,
+      lineasCount: lineasUnicas.length,
+      lineasDescartadasDuplicadas: result.lineas.length - lineasUnicas.length,
       provider,
       metadata: result.metadata,
     },

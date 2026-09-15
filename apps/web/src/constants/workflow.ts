@@ -42,7 +42,7 @@ export const WORKFLOW_PREPEND_STEPS: WorkflowMacroStep[] = [
 export const WORKFLOW_APPEND_STEPS: WorkflowMacroStep[] = [
   {
     id: "comparacion",
-    orden: 7,
+    orden: 8,
     titulo: "Comparación histórica",
     descripcion:
       "Contrasta indicadores y balances de distintos ejercicios del mismo contribuyente para detectar tendencias.",
@@ -57,7 +57,7 @@ export const WORKFLOW_APPEND_STEPS: WorkflowMacroStep[] = [
   },
   {
     id: "consolidacion",
-    orden: 8,
+    orden: 9,
     titulo: "Consolidación de grupo",
     descripcion:
       "Agrupa entre 2 y 12 fichas aprobadas de empresas relacionadas para un análisis de holding o grupo económico.",
@@ -72,7 +72,7 @@ export const WORKFLOW_APPEND_STEPS: WorkflowMacroStep[] = [
   },
   {
     id: "operacion",
-    orden: 9,
+    orden: 10,
     titulo: "Monitoreo operativo",
     descripcion:
       "Seguimiento de colas, reintentos, alertas y salud del pipeline automático para administradores.",
@@ -92,9 +92,13 @@ export const WORKFLOW_MACRO_STEPS: WorkflowMacroStep[] = [
     id: "carga",
     orden: 1,
     titulo: "Carga documental",
-    descripcion: "Ingreso de la ficha financiera (PDF o imagen) y apertura del expediente.",
+    descripcion: "Ingreso del PDF o imagen, registro del expediente y encolado para procesamiento.",
     icon: "fas fa-file-upload",
-    subetapas: ["Recepción del documento", "Registro del caso", "Encolado para procesamiento"],
+    subetapas: [
+      "Recepción del documento",
+      "Registro del expediente",
+      "Encolado para procesamiento",
+    ],
     routeName: "casos",
     routeLabel: "Bandeja de fichas",
   },
@@ -102,17 +106,31 @@ export const WORKFLOW_MACRO_STEPS: WorkflowMacroStep[] = [
     id: "procesamiento",
     orden: 2,
     titulo: "Procesamiento automático",
-    descripcion: "Extracción, normalización, clasificación contable y validaciones del sistema.",
+    descripcion:
+      "Cola, lectura IA del documento, normalización, clasificación, validación y preparación para revisión humana.",
     icon: "fas fa-cogs",
-    subetapas: ["Extracción OCR", "Normalización de montos", "Clasificación por rubros", "Validaciones automáticas"],
+    subetapas: [
+      "Cola de procesamiento",
+      "Preproceso PDF (páginas e imágenes)",
+      "Extracción IA (tablas y montos)",
+      "Normalización (moneda, escala, ejercicio)",
+      "Clasificación por rubros del plan",
+      "Validación automática y cuadratura",
+      "Pre-revisión (limpieza, ajustes IA antes del analista)",
+    ],
   },
   {
     id: "revision",
     orden: 3,
     titulo: "Revisión del analista",
-    descripcion: "Validación humana de datos extraídos, correcciones e inconsistencias.",
+    descripcion:
+      "Validación humana de datos extraídos, corrección de líneas, cuadratura y confirmación de alertas.",
     icon: "fas fa-user-check",
-    subetapas: ["Comparación documento vs. datos", "Corrección de líneas", "Confirmación de alertas"],
+    subetapas: [
+      "Comparación documento vs. datos",
+      "Corrección de líneas y reclasificación",
+      "Confirmación de alertas e inconsistencias",
+    ],
     routeName: "caso-revision",
     routeLabel: "Estación de revisión",
   },
@@ -120,29 +138,56 @@ export const WORKFLOW_MACRO_STEPS: WorkflowMacroStep[] = [
     id: "aprobacion",
     orden: 4,
     titulo: "Aprobación de ficha",
-    descripcion: "Cierre formal de la ficha canónica con indicadores calculados.",
+    descripcion: "Cierre formal de la ficha canónica con totales verificados y snapshot de validaciones.",
     icon: "fas fa-check-circle",
-    subetapas: ["Cuadratura verificada", "Ficha en estado aprobado", "Indicadores financieros"],
+    subetapas: [
+      "Cuadratura final verificada",
+      "Ficha canónica en estado aprobado",
+      "Snapshot de validaciones y semáforo",
+    ],
     routeName: "caso-revision",
     routeLabel: "Aprobar ficha",
   },
   {
-    id: "archivo",
+    id: "indicadores",
     orden: 5,
+    titulo: "Indicadores financieros",
+    descripcion:
+      "Cálculo automático de ratios e indicadores a partir de la ficha aprobada, antes del informe de comité.",
+    icon: "fas fa-chart-pie",
+    subetapas: [
+      "Totales por rubro consolidados",
+      "Ratios e indicadores institucionales",
+      "Tabla lista para informe y comparación",
+    ],
+    routeName: "caso-informe",
+    routeLabel: "Ver indicadores",
+  },
+  {
+    id: "archivo",
+    orden: 6,
     titulo: "Archivo en repositorio",
     descripcion: "La ficha aprobada queda disponible para consulta histórica institucional.",
     icon: "fas fa-archive",
-    subetapas: ["Publicación en repositorio", "Vinculación contribuyente/ejercicio", "Trazabilidad conservada"],
+    subetapas: [
+      "Publicación en repositorio",
+      "Vinculación contribuyente/ejercicio",
+      "Trazabilidad conservada",
+    ],
     routeName: "repositorio",
     routeLabel: "Repositorio",
   },
   {
     id: "informe",
-    orden: 6,
+    orden: 7,
     titulo: "Informe de comité",
     descripcion: "Elaboración del documento formal para presentación al comité de crédito.",
     icon: "fas fa-file-contract",
-    subetapas: ["Generación preliminar", "Apartados del analista", "Exportación y cierre"],
+    subetapas: [
+      "Generación preliminar desde ficha aprobada",
+      "Apartados del analista",
+      "Exportación y cierre",
+    ],
     routeName: "caso-informe",
     routeLabel: "Informe de comité",
   },
@@ -170,8 +215,9 @@ const ESTADO_ACTIVE_ORDEN: Record<string, number> = {
   [CasoEstado.VALIDANDO]: 2,
   [CasoEstado.PENDIENTE_CALIDAD]: 2,
   [CasoEstado.EN_REVISION]: 3,
-  [CasoEstado.APROBADO]: 6,
-  [CasoEstado.INFORME_GENERADO]: 7,
+  [CasoEstado.APROBADO]: 7,
+  [CasoEstado.INFORME_GENERADO]: 8,
+  [CasoEstado.ARCHIVADO]: 8,
 };
 
 function pipelineByPrefix(pipeline: PipelineEtapaDto[], ids: string[]): PipelineEtapaDto[] {
@@ -204,7 +250,9 @@ function fechaForOrden(
     ],
     3: [CasoEstado.EN_REVISION],
     4: [CasoEstado.APROBADO],
-    6: [CasoEstado.INFORME_GENERADO],
+    5: [CasoEstado.APROBADO],
+    6: [CasoEstado.APROBADO, CasoEstado.INFORME_GENERADO],
+    7: [CasoEstado.INFORME_GENERADO],
   };
   const targets = mapOrdenEstados[orden];
   if (!targets) return undefined;
@@ -233,19 +281,28 @@ export function resolveWorkflowForCaso(input: {
   }
   const informeEtapa = pipeline.find((p) => p.id === "AA.8");
   const revisionEtapa = pipeline.find((p) => p.id === "AA.6");
+  const indicadoresEtapa = pipeline.find((p) => p.id === "AA.7");
   const aprobadoPlus =
-    input.estado === CasoEstado.APROBADO || input.estado === CasoEstado.INFORME_GENERADO;
+    input.estado === CasoEstado.APROBADO ||
+    input.estado === CasoEstado.INFORME_GENERADO ||
+    input.estado === CasoEstado.ARCHIVADO;
+  const informeListo =
+    input.estado === CasoEstado.INFORME_GENERADO || input.estado === CasoEstado.ARCHIVADO;
+  const lastMacroOrden = WORKFLOW_MACRO_STEPS[WORKFLOW_MACRO_STEPS.length - 1]?.orden ?? 7;
 
   return WORKFLOW_MACRO_STEPS.map((step) => {
     let status: WorkflowStepStatus = "pending";
     if (isError) {
       if (step.orden < activeOrden) status = "completed";
-      else if (step.orden === Math.min(activeOrden, 6)) status = "error";
+      else if (step.orden === Math.min(activeOrden, lastMacroOrden)) status = "error";
     } else if (step.orden < activeOrden) {
       status = "completed";
-    } else if (step.orden === activeOrden || (input.estado === CasoEstado.APROBADO && step.orden === 6)) {
-      status = input.estado === CasoEstado.INFORME_GENERADO ? "completed" : "active";
-    } else if (input.estado === CasoEstado.APROBADO && step.orden <= 5) {
+    } else if (
+      step.orden === activeOrden ||
+      (input.estado === CasoEstado.APROBADO && step.orden === lastMacroOrden)
+    ) {
+      status = informeListo && step.id === "informe" ? "completed" : "active";
+    } else if (input.estado === CasoEstado.APROBADO && step.orden < lastMacroOrden) {
       status = "completed";
     }
 
@@ -264,7 +321,15 @@ export function resolveWorkflowForCaso(input: {
         detalle = revisionEtapa?.detalle ?? (input.estado === CasoEstado.EN_REVISION ? "En curso" : undefined);
         break;
       case "aprobacion":
-        detalle = revisionEtapa?.completada ? revisionEtapa.detalle : undefined;
+        detalle =
+          revisionEtapa?.completada
+            ? revisionEtapa.detalle
+            : input.estado === CasoEstado.APROBADO
+              ? "Ficha aprobada"
+              : undefined;
+        break;
+      case "indicadores":
+        detalle = indicadoresEtapa?.detalle;
         break;
       case "archivo":
         detalle = aprobadoPlus ? "Disponible en repositorio institucional" : undefined;
@@ -332,13 +397,14 @@ const PROCESAMIENTO_ESTADOS = new Set<string>([
 
 const CARGA_ESTADOS = new Set<string>([CasoEstado.RECIBIDO, CasoEstado.EN_COLA]);
 
-/** Identificador de etapa macro (1–6) según el estado operativo del caso. */
+/** Identificador de etapa macro (1–7) según el estado operativo del caso. */
 export function macroEtapaIdForEstado(estado: string): string {
   if (CARGA_ESTADOS.has(estado)) return "carga";
   if (PROCESAMIENTO_ESTADOS.has(estado)) return "procesamiento";
   if (estado === CasoEstado.EN_REVISION) return "revision";
-  if (estado === CasoEstado.APROBADO) return "aprobacion";
+  if (estado === CasoEstado.APROBADO) return "informe";
   if (estado === CasoEstado.INFORME_GENERADO) return "informe";
+  if (estado === CasoEstado.ARCHIVADO) return "archivo";
   if (ERROR_ESTADOS.has(estado)) return "interrumpido";
   return "carga";
 }

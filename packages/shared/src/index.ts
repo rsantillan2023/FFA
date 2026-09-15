@@ -3,5 +3,8 @@ export * from "./types.js";
 export * from "./identidad-caso.js";
 export * from "./extract-failure-diagnosis.js";
 export * from "./confianza-semaforo.js";
+export * from "./cuadratura.js";
 export * from "./with-timeout.js";
+export * from "./procesamiento-umbral.js";
+export * from "./preprocess-concurrency.js";
 export * from "./ia-cost.js";

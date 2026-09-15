@@ -9,14 +9,15 @@ export const SYSTEM_HELP: PageHelpInfo = {
     "Cuando necesitás entender el propósito general del sistema, capacitar a alguien nuevo o recordar cómo encaja cada módulo en el flujo completo.",
   sections: [
     {
-      title: "Las 6 etapas del flujo",
+      title: "Las 7 etapas del flujo",
       bullets: [
         "1. Carga documental — subís el PDF o imagen y se abre el expediente.",
-        "2. Procesamiento automático — extracción, normalización, clasificación y validación.",
+        "2. Procesamiento automático — cola, extracción IA, normalización, clasificación, validación y pre-revisión.",
         "3. Revisión del analista — corregís lo que el sistema leyó o clasificó mal.",
-        "4. Aprobación de ficha — cierre formal con totales e indicadores.",
-        "5. Archivo en repositorio — fichas aprobadas consultables por empresa y ejercicio.",
-        "6. Informe de comité — documento formal para presentar al comité de crédito.",
+        "4. Aprobación de ficha — cierre formal con totales verificados.",
+        "5. Indicadores financieros — ratios calculados al aprobar la ficha.",
+        "6. Archivo en repositorio — fichas aprobadas consultables por empresa y ejercicio.",
+        "7. Informe de comité — documento formal para presentar al comité de crédito.",
       ],
     },
     {

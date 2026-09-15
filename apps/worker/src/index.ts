@@ -11,6 +11,7 @@ import {
 } from "@ffa/queue";
 import { initStorage } from "@ffa/storage";
 import { resolveMongoUri } from "@ffa/infra";
+import { preprocessConcurrencyLimit } from "@ffa/shared";
 import { Worker } from "bullmq";
 import { workerConfig } from "./config.js";
 import { pollMailhogIngest } from "./processors/mailhog-ingest.js";
@@ -25,17 +26,21 @@ import { processValidate } from "./processors/validate.js";
 
 async function startRedisWorkers(): Promise<void> {
   const connection = getRedisConnection(workerConfig.redisUrl);
-  const workerOpts = { connection, concurrency: 3 };
+  const sharedOpts = { connection, concurrency: 3 };
+  const preprocessWorkers = preprocessConcurrencyLimit();
 
   const workers = [
-    new Worker<PreprocessJobData>(QUEUE_NAMES.PREPROCESS, processPreprocess, workerOpts),
+    new Worker<PreprocessJobData>(QUEUE_NAMES.PREPROCESS, processPreprocess, {
+      connection,
+      concurrency: preprocessWorkers,
+    }),
     new Worker<ExtractJobData>(QUEUE_NAMES.EXTRACT, processExtract, {
       connection,
       concurrency: 1,
     }),
-    new Worker<NormalizeJobData>(QUEUE_NAMES.NORMALIZE, processNormalize, workerOpts),
-    new Worker<ClassifyJobData>(QUEUE_NAMES.CLASSIFY, processClassify, workerOpts),
-    new Worker<ValidateJobData>(QUEUE_NAMES.VALIDATE, processValidate, workerOpts),
+    new Worker<NormalizeJobData>(QUEUE_NAMES.NORMALIZE, processNormalize, sharedOpts),
+    new Worker<ClassifyJobData>(QUEUE_NAMES.CLASSIFY, processClassify, sharedOpts),
+    new Worker<ValidateJobData>(QUEUE_NAMES.VALIDATE, processValidate, sharedOpts),
   ];
 
   for (const w of workers) {
@@ -62,7 +67,9 @@ async function startRedisWorkers(): Promise<void> {
     });
   }
 
-  console.log("[worker] BullMQ activo (preprocess→extract→normalize→classify→validate)");
+  console.log(
+    `[worker] BullMQ activo (preprocess×${preprocessWorkers}→extract×1→normalize→classify→validate)`
+  );
 }
 
 function startMailPoll(): void {

@@ -44,6 +44,8 @@ const casoSchema = new Schema(
     observaciones: { type: String },
     rechazoMotivo: { type: String },
     version: { type: Number, default: 0 },
+    /** Corrida activa del pipeline — invalida jobs encolados antes de foja cero. */
+    pipelineRunId: { type: String, trim: true },
     elegibleAutoAprobacion: { type: Boolean, default: false },
     enColaAt: { type: Date },
     procesamientoPausado: { type: Boolean, default: false },

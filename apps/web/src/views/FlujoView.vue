@@ -5,12 +5,12 @@
     <section class="card block">
       <header class="block-head">
         <div class="block-head__text">
-          <h2>{{ procesoExtendido ? "Proceso extendido SOOFT FINYX" : "Recorrido estándar de una ficha (6 etapas)" }}</h2>
+          <h2>{{ procesoExtendido ? "Proceso extendido SOOFT FINYX" : "Recorrido estándar de una ficha (7 etapas)" }}</h2>
           <p class="lead">
             {{
               procesoExtendido
                 ? "Camino feliz de la ficha más maestros institucionales y módulos de análisis posterior (comparación, consolidación, operación)."
-                : "Cada expediente recorre estas etapas en orden. Hacé clic en un nodo para ver el detalle en un modal."
+                : "Cada expediente recorre estas etapas en orden, alineadas con el pipeline automático (AA.1–AA.8). Hacé clic en un nodo para ver el detalle."
             }}
           </p>
         </div>
@@ -21,7 +21,7 @@
           @click="procesoExtendido = !procesoExtendido"
         >
           <i :class="procesoExtendido ? 'fas fa-compress-alt' : 'fas fa-expand-alt'" aria-hidden="true"></i>
-          {{ procesoExtendido ? "Ver camino feliz (6 etapas)" : "Proceso extendido" }}
+          {{ procesoExtendido ? "Ver camino feliz (7 etapas)" : "Proceso extendido" }}
         </button>
       </header>
 

@@ -1,6 +1,7 @@
 import type { CoberturaDesglose, ControlAritmeticoExtract, ExtractResult, InformeExtraccion, SeccionPagina } from "../types.js";
 import { clasificarItemsExtract } from "./classify-extract-items.js";
 import { buildSeccionesDetectadas } from "./build-secciones-detectadas.js";
+import { dedupeFuzzyBalanceLineas } from "../balance/dedupe-fuzzy-balance.js";
 import { crossValidateAndDedupe, setDedupeDefaultEjercicio, setDedupePaginasClasificadas } from "./dedupe-extract.js";
 import { detectarInconsistencias } from "./cross-validate-extract.js";
 import { enriquecerMonedaEscala } from "./detect-moneda-escala.js";
@@ -9,6 +10,7 @@ import { ejecutarControlesAritmeticos } from "./extract-arithmetic-checks.js";
 import { normalizarConfianzaExtraccion } from "./normalize-confianza.js";
 import { normalizarMontosExtractResult } from "./normalizar-montos-extract.js";
 import { extraerIndicadoresDesdeTranscripcion } from "./extraer-indicadores-texto.js";
+import { fusionarExtractTextoNativoPrimario } from "./extract-native-text-primary.js";
 import { calcularCoberturaTablas, complementarLineasDesdeTextoEscaneado } from "./extraer-lineas-tabla-texto.js";
 import { normalizarSignoLinea, normalizarSignosExtractResult } from "./normalizar-signos-contables.js";
 import { SECCIONES_CANONICAS_OBLIGATORIAS } from "./pdf-page-select.js";
@@ -158,9 +160,35 @@ function enrichIndicadorNombre<T extends { denominacion: string; nombre?: string
   }));
 }
 
+function heuristicComplementEnabled(): boolean {
+  const flag = process.env.EXTRACT_HEURISTIC_COMPLEMENT?.trim().toLowerCase();
+  if (flag === "0" || flag === "false" || flag === "off") return false;
+  return flag === "1" || flag === "true" || flag === "on";
+}
+
+/** Completa filas omitidas por Vision desde texto escaneado del PDF (gap-fill, no reemplazo IA). */
+function autoComplementDesdeTextoEnabled(): boolean {
+  const flag = process.env.EXTRACT_AUTO_COMPLEMENT?.trim().toLowerCase();
+  if (flag === "0" || flag === "false" || flag === "off") return false;
+  return true;
+}
+
+function tieneTextoEscaneadoBalance(result: ExtractResult): boolean {
+  return (result.paginasClasificadas ?? []).some(
+    (p) => p.textoEscaneado?.trim() && ["balance", "resultados"].includes(p.seccion)
+  );
+}
+
 export function postProcessExtractResult(result: ExtractResult): ExtractResult {
-  let working = normalizarMontosExtractResult(result);
-  working = complementarLineasDesdeTextoEscaneado(working);
+  let working = fusionarExtractTextoNativoPrimario(result);
+  working = normalizarMontosExtractResult(working);
+  if (
+    !working.provenanceExtraccion?.textoNativoPrimario &&
+    (heuristicComplementEnabled() ||
+      (autoComplementDesdeTextoEnabled() && tieneTextoEscaneadoBalance(working)))
+  ) {
+    working = complementarLineasDesdeTextoEscaneado(working);
+  }
   working = normalizarSignosExtractResult(working);
 
   const paginasTotales = working.paginasClasificadas?.length ?? working.tiposPorPagina?.length ?? 0;
@@ -170,8 +198,9 @@ export function postProcessExtractResult(result: ExtractResult): ExtractResult {
   setDedupePaginasClasificadas(working.paginasClasificadas);
   setDedupeDefaultEjercicio(working.metadata.periodo?.ejercicio);
   const { lineas: deduped, stats: dedupeStats } = crossValidateAndDedupe(clasificadosPre.lineasContables);
+  const fuzzyPost = dedupeFuzzyBalanceLineas(deduped);
 
-  const { lineas, inconsistencias, descartadasPorPeriodo } = detectarInconsistencias(deduped);
+  const { lineas, inconsistencias, descartadasPorPeriodo } = detectarInconsistencias(fuzzyPost.lineas);
   const ctxSigno = {
     moneda: working.metadata.moneda,
     escala: working.metadata.escala,
@@ -276,6 +305,17 @@ export function postProcessExtractResult(result: ExtractResult): ExtractResult {
   };
 
   merged.informeExtraccion!.confianzaGlobal = calcularConfianzaGlobal(merged, coberturaDesglose);
+
+  if (merged.provenanceExtraccion) {
+    const lineasOmitidasEstimadas = (coberturaTablas ?? []).reduce(
+      (sum, t) => sum + (t.filasOmitidas ?? 0),
+      0
+    );
+    merged.provenanceExtraccion = {
+      ...merged.provenanceExtraccion,
+      lineasOmitidasEstimadas,
+    };
+  }
 
   return merged;
 }

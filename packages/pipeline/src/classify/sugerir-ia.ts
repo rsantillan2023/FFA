@@ -1,5 +1,6 @@
 import { emitIaLlamada } from "../ia/registrar-llamada.js";
-import type { RubroRef } from "../types.js";
+import { esRubroAsignable, filtrarRubrosAsignables } from "../plan/rubros-asignables.js";
+import type { NormalizedLine, RubroRef } from "../types.js";
 import { anthropicDisponible, openAiDisponible } from "../extract/resolve-provider.js";
 import { scoreRubroCandidates } from "./classify-lines.js";
 
@@ -22,6 +23,8 @@ export interface SugerirClasificacionIaInput {
     razonSocial?: string;
     lineasMismaPagina?: string[];
   };
+  /** Etiqueta de auditoría IA (default: clasificacion_revision_ia) */
+  funcionAuditoria?: string;
 }
 
 export interface SugerenciaClasificacionIaResult {
@@ -41,25 +44,34 @@ export class ClasificacionIaNoDisponibleError extends Error {
   }
 }
 
-function buildShortlist(input: SugerirClasificacionIaInput): RubroRef[] {
-  const linea = {
+function lineaNormalizada(input: SugerirClasificacionIaInput): NormalizedLine {
+  return {
     denominacionOriginal: input.denominacionOriginal,
     montoOriginal: input.montoNormalizado ?? 0,
     paginaNumero: input.paginaNumero ?? 1,
     denominacionNormalizada: input.denominacionOriginal,
     montoNormalizado: input.montoNormalizado ?? 0,
-    signoAplicado: "positivo" as const,
+    signoAplicado: "positivo",
     codigoOrigen: input.codigoOrigen,
     columnaOrigen: input.columnaOrigen,
   };
+}
 
-  const scored = scoreRubroCandidates(linea, input.rubros);
-  const byId = new Map(input.rubros.map((r) => [r.id, r]));
+function rubrosParaClasificacion(input: SugerirClasificacionIaInput): RubroRef[] {
+  const asignables = filtrarRubrosAsignables(input.rubros);
+  return asignables.length ? asignables : input.rubros;
+}
+
+function buildShortlist(input: SugerirClasificacionIaInput): RubroRef[] {
+  const rubros = rubrosParaClasificacion(input);
+  const linea = lineaNormalizada(input);
+  const scored = scoreRubroCandidates(linea, rubros);
+  const byId = new Map(rubros.map((r) => [r.id, r]));
   const shortlist: RubroRef[] = [];
 
   for (const c of scored) {
     const rubro = byId.get(c.rubroInstitucionalId);
-    if (rubro && !shortlist.some((s) => s.id === rubro.id)) {
+    if (rubro && esRubroAsignable(rubro, input.rubros) && !shortlist.some((s) => s.id === rubro.id)) {
       shortlist.push(rubro);
     }
     if (shortlist.length >= MAX_RUBROS_PROMPT) break;
@@ -67,13 +79,13 @@ function buildShortlist(input: SugerirClasificacionIaInput): RubroRef[] {
 
   if (input.rubroActualId) {
     const actual = byId.get(input.rubroActualId);
-    if (actual && !shortlist.some((s) => s.id === actual.id)) {
+    if (actual && esRubroAsignable(actual, input.rubros) && !shortlist.some((s) => s.id === actual.id)) {
       shortlist.unshift(actual);
     }
   }
 
   if (shortlist.length < 10) {
-    for (const rubro of input.rubros) {
+    for (const rubro of rubros) {
       if (shortlist.some((s) => s.id === rubro.id)) continue;
       shortlist.push(rubro);
       if (shortlist.length >= MAX_RUBROS_PROMPT) break;
@@ -81,6 +93,37 @@ function buildShortlist(input: SugerirClasificacionIaInput): RubroRef[] {
   }
 
   return shortlist.slice(0, MAX_RUBROS_PROMPT);
+}
+
+/** Si la IA eligió un agrupador, reemplazar por la hoja más cercana por heurística. */
+function corregirRubroEstructural(
+  rubro: RubroRef,
+  input: SugerirClasificacionIaInput,
+  rubros: RubroRef[]
+): { rubro: RubroRef; ajuste?: string } {
+  if (esRubroAsignable(rubro, input.rubros)) return { rubro };
+
+  const linea = lineaNormalizada(input);
+  const pool = rubros.filter((r) => r.estadoFinanciero === rubro.estadoFinanciero);
+  const candidatos = scoreRubroCandidates(linea, pool.length ? pool : rubros);
+  const mejorId = candidatos[0]?.rubroInstitucionalId;
+  const mejor = mejorId ? rubros.find((r) => r.id === mejorId) : undefined;
+  if (mejor) {
+    return {
+      rubro: mejor,
+      ajuste: `Se reemplazó el rubro estructural ${rubro.codigo} por el rubro de detalle ${mejor.codigo}.`,
+    };
+  }
+  const fallback = rubros.find(
+    (r) => esRubroAsignable(r, input.rubros) && r.estadoFinanciero === rubro.estadoFinanciero
+  );
+  if (fallback) {
+    return {
+      rubro: fallback,
+      ajuste: `Se reemplazó el agrupador ${rubro.codigo} por ${fallback.codigo} (detalle del mismo estado).`,
+    };
+  }
+  return { rubro };
 }
 
 function buildPrompt(input: SugerirClasificacionIaInput, shortlist: RubroRef[]): string {
@@ -130,8 +173,11 @@ Respondé SOLO con JSON válido (sin markdown):
 
 Reglas:
 - rubro_codigo DEBE existir en la lista de rubros válidos.
-- Si ningún rubro encaja bien, elegí el más cercano pero confianza ≤ 50.
-- Considerá estado financiero (activo/pasivo/patrimonio/resultados) según el significado contable.`;
+- Todos los rubros listados son de DETALLE (hoja): usá el más específico, nunca un total agregado.
+- NUNCA uses códigos raíz como "1", "2" o "3" — son agrupadores del plan, no imputación de líneas.
+- Si ningún rubro encaja bien, elegí el detalle más cercano pero confianza ≤ 50.
+- Considerá estado financiero (activo/pasivo/patrimonio/resultados) según el significado contable.
+- Acciones propias, reservas y capital social pertenecen a PATRIMONIO, no a activo.`;
 }
 
 function parseLlmJson(content: string): {
@@ -169,7 +215,14 @@ function clasificacionTimeoutMs(): number {
   return Number.isFinite(n) && n > 0 ? n : 90_000;
 }
 
-async function callAnthropic(prompt: string): Promise<{ text: string; model: string }> {
+function funcionAuditoriaClasificacion(input?: SugerirClasificacionIaInput): string {
+  return input?.funcionAuditoria?.trim() || "clasificacion_revision_ia";
+}
+
+async function callAnthropic(
+  prompt: string,
+  funcion: string
+): Promise<{ text: string; model: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new ClasificacionIaNoDisponibleError();
 
@@ -196,7 +249,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
       await emitIaLlamada({
         proveedor: "anthropic",
         modelo: model,
-        funcion: "clasificacion_revision_ia",
+        funcion,
         tokensEntrada: 0,
         tokensSalida: 0,
         duracionMs: Date.now() - started,
@@ -219,7 +272,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
     await emitIaLlamada({
       proveedor: "anthropic",
       modelo: model,
-      funcion: "clasificacion_revision_ia",
+      funcion,
       tokensEntrada: body.usage?.input_tokens ?? 0,
       tokensSalida: body.usage?.output_tokens ?? 0,
       duracionMs: Date.now() - started,
@@ -234,7 +287,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
   throw new Error(`Ningún modelo Anthropic disponible (${lastError})`);
 }
 
-async function callOpenAi(prompt: string): Promise<{ text: string; model: string }> {
+async function callOpenAi(prompt: string, funcion: string): Promise<{ text: string; model: string }> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new ClasificacionIaNoDisponibleError();
 
@@ -268,7 +321,7 @@ async function callOpenAi(prompt: string): Promise<{ text: string; model: string
     await emitIaLlamada({
       proveedor: "openai",
       modelo: model,
-      funcion: "clasificacion_revision_ia",
+      funcion,
       tokensEntrada: 0,
       tokensSalida: 0,
       duracionMs: Date.now() - started,
@@ -286,7 +339,7 @@ async function callOpenAi(prompt: string): Promise<{ text: string; model: string
   await emitIaLlamada({
     proveedor: "openai",
     modelo: model,
-    funcion: "clasificacion_revision_ia",
+    funcion,
     tokensEntrada: body.usage?.prompt_tokens ?? 0,
     tokensSalida: body.usage?.completion_tokens ?? 0,
     duracionMs: Date.now() - started,
@@ -298,17 +351,20 @@ async function callOpenAi(prompt: string): Promise<{ text: string; model: string
   return { text, model };
 }
 
-async function callLlm(prompt: string): Promise<{ text: string; proveedor: "anthropic" | "openai"; model: string }> {
+async function callLlm(
+  prompt: string,
+  funcion: string
+): Promise<{ text: string; proveedor: "anthropic" | "openai"; model: string }> {
   if (anthropicDisponible()) {
     try {
-      const { text, model } = await callAnthropic(prompt);
+      const { text, model } = await callAnthropic(prompt, funcion);
       return { text, proveedor: "anthropic", model };
     } catch (e) {
       if (!openAiDisponible()) throw e;
     }
   }
   if (openAiDisponible()) {
-    const { text, model } = await callOpenAi(prompt);
+    const { text, model } = await callOpenAi(prompt, funcion);
     return { text, proveedor: "openai", model };
   }
   throw new ClasificacionIaNoDisponibleError();
@@ -321,9 +377,15 @@ export async function sugerirClasificacionIa(
     throw new Error("No hay rubros disponibles en el plan de cuentas");
   }
 
+  const rubros = rubrosParaClasificacion(input);
+  if (!rubros.length) {
+    throw new Error("No hay rubros de detalle disponibles en el plan de cuentas");
+  }
+
   const shortlist = buildShortlist(input);
   const prompt = buildPrompt(input, shortlist);
-  const { text, proveedor, model } = await callLlm(prompt);
+  const funcion = funcionAuditoriaClasificacion(input);
+  const { text, proveedor, model } = await callLlm(prompt, funcion);
   const parsed = parseLlmJson(text);
 
   const codigo = parsed.rubro_codigo?.trim();
@@ -331,13 +393,20 @@ export async function sugerirClasificacionIa(
     throw new Error("La IA no devolvió un código de rubro válido");
   }
 
-  const rubro = shortlist.find((r) => r.codigo === codigo);
+  let rubro = shortlist.find((r) => r.codigo === codigo);
   if (!rubro) {
     throw new Error(`La IA sugirió el rubro "${codigo}" que no está en la lista permitida`);
   }
 
-  const confianza = Math.min(100, Math.max(0, Math.round(Number(parsed.confianza) || 0)));
-  const razonamiento = (parsed.razonamiento ?? "").trim() || "Sin explicación adicional.";
+  const corregido = corregirRubroEstructural(rubro, input, rubros);
+  rubro = corregido.rubro;
+
+  let confianza = Math.min(100, Math.max(0, Math.round(Number(parsed.confianza) || 0)));
+  let razonamiento = (parsed.razonamiento ?? "").trim() || "Sin explicación adicional.";
+  if (corregido.ajuste) {
+    confianza = Math.min(confianza, 55);
+    razonamiento = `${corregido.ajuste} ${razonamiento}`.trim();
+  }
 
   return {
     rubroInstitucionalId: rubro.id,

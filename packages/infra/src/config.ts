@@ -1,3 +1,5 @@
+import { resolveLocalStoragePath } from "./paths.js";
+
 export type FfaProfile = "minimal" | "docker" | "native" | "cloud";
 export type StorageBackend = "local" | "s3";
 export type QueueBackend = "inline" | "redis";
@@ -152,7 +154,7 @@ export function loadInfraConfig(): InfraConfig {
   return {
     profile,
     storageBackend,
-    localStoragePath: env("LOCAL_STORAGE_PATH") ?? "./data/storage",
+    localStoragePath: resolveLocalStoragePath(env("LOCAL_STORAGE_PATH")),
     queueBackend,
     mailBackend,
     mongodbBackend,

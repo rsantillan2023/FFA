@@ -62,8 +62,8 @@ export const PAGE_INFO: Record<string, PageMeta> = {
     },
   },
   casos: {
-    title: "Bandeja de fichas y carga de documentos",
-    subtitle: "Subí fichas financieras, seguí el procesamiento y entrá a revisar cada una.",
+    title: "Monitor de Fichas Financieras",
+    subtitle: "",
     help: {
       title: "¿Para qué sirve la bandeja de fichas?",
       summary:
@@ -337,23 +337,24 @@ export const PAGE_INFO: Record<string, PageMeta> = {
   },
   flujo: {
     title: "Mapa del proceso SOOFT FINYX",
-    subtitle: "Visualización del recorrido de seis etapas que sigue cada ficha financiera.",
+    subtitle: "Visualización del recorrido de siete etapas que sigue cada ficha financiera.",
     help: {
       title: "¿Para qué sirve el mapa del proceso?",
       summary:
-        "Esta pantalla muestra el flujo institucional completo de SOOFT FINYX como un diagrama secuencial (nodo → flecha → nodo). Permite comprender el recorrido estándar antes de operar un caso y localizar expedientes específicos.",
+        "Esta pantalla muestra el flujo institucional completo de SOOFT FINYX como un diagrama secuencial (nodo → flecha → nodo), alineado con el pipeline automático AA.1–AA.8. Permite comprender el recorrido estándar antes de operar un caso y localizar expedientes específicos.",
       whenToUse:
         "Al incorporarse al sistema, al capacitar analistas o cuando se requiera orientación sobre en qué etapa se encuentra un expediente.",
       sections: [
         {
-          title: "Las 6 etapas del flujo",
+          title: "Las 7 etapas del flujo",
           bullets: [
-            "1. Carga documental — ingreso del PDF o imagen.",
-            "2. Procesamiento automático — extracción, normalización, clasificación y validación.",
+            "1. Carga documental — ingreso del PDF o imagen y encolado.",
+            "2. Procesamiento automático — cola, extracción IA, normalización, clasificación, validación y pre-revisión.",
             "3. Revisión del analista — corrección y validación humana.",
-            "4. Aprobación de ficha — cierre formal con indicadores.",
-            "5. Archivo en repositorio — disponibilidad histórica.",
-            "6. Informe de comité — documento para presentación.",
+            "4. Aprobación de ficha — cierre formal con totales verificados.",
+            "5. Indicadores financieros — ratios calculados al aprobar.",
+            "6. Archivo en repositorio — disponibilidad histórica.",
+            "7. Informe de comité — documento para presentación.",
           ],
         },
       ],
@@ -370,7 +371,7 @@ export const PAGE_INFO: Record<string, PageMeta> = {
     help: {
       title: "¿Para qué sirve la vista de expediente?",
       summary:
-        "Muestra el estado actual de un caso concreto sobre el mismo diagrama de seis etapas, resaltando cuál está completada, cuál está en curso y cuáles están pendientes. Incluye el detalle del procesamiento automático y un historial plegable de movimientos.",
+        "Muestra el estado actual de un caso concreto sobre el mismo diagrama de siete etapas, resaltando cuál está completada, cuál está en curso y cuáles están pendientes. Incluye el detalle del procesamiento automático (AA.1–AA.8) y un historial plegable de movimientos.",
       whenToUse:
         "Cuando necesite saber exactamente dónde está un caso, diagnosticar demoras o comunicar el avance a un referente interno.",
       bullets: [

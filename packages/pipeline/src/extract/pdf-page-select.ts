@@ -1,5 +1,5 @@
 import type { PaginaClasificada, SeccionPagina } from "../types.js";
-import { esPaginaCanonicaObligatoria, type PageTextScan } from "./pdf-text-scan.js";
+import { densidadNumericaPagina, esPaginaCanonicaObligatoria, type PageTextScan } from "./pdf-text-scan.js";
 
 /** Secciones contables canónicas — SIEMPRE se procesan, sin límite de presupuesto. */
 export const SECCIONES_CANONICAS_OBLIGATORIAS: SeccionPagina[] = [
@@ -30,10 +30,11 @@ function capPagesForExtraction(pageNums: number[], scans: PageTextScan[]): numbe
   const priority = (pageNum: number): number => {
     const scan = scanByPage.get(pageNum);
     if (!scan) return 0;
-    if (esPaginaCanonicaObligatoria(scan)) return 100 + scan.score;
+    const nums = densidadNumericaPagina(scan);
+    if (esPaginaCanonicaObligatoria(scan)) return 100 + scan.score + Math.min(nums, 40);
     if (pageNum === 1) return 90;
     if (SECCIONES_SECUNDARIAS.includes(scan.seccion)) return 40 + scan.score;
-    return scan.score;
+    return scan.score + Math.min(nums, 20);
   };
 
   return [...pageNums]

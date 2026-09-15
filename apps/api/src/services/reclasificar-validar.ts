@@ -24,6 +24,8 @@ export async function reclasificarValidarCaso(casoId: string, userId: string): P
     linea.confianzaClasificacion = 0;
     linea.requiereRevision = true;
     linea.origenClasificacion = undefined;
+    linea.set("clasificacionIaAt", undefined);
+    linea.clasificacionIaRazonamiento = undefined;
     linea.estado = LineaEstado.NORMALIZADA;
     await linea.save();
   }

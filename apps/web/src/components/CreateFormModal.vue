@@ -1,6 +1,11 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="create-modal-backdrop" @click.self="tryClose">
+    <div
+      v-if="modelValue"
+      class="create-modal-backdrop"
+      :class="{ 'create-modal-backdrop--stacked': stacked }"
+      @click.self="tryClose"
+    >
       <div
         class="create-modal"
         :class="{
@@ -70,6 +75,8 @@ const props = defineProps<{
   xl?: boolean;
   /** No permite cerrar con Escape, clic fuera ni la X. */
   persistent?: boolean;
+  /** Por encima de otro CreateFormModal ya abierto. */
+  stacked?: boolean;
   assistFlowId?: CreateAssistFlowId;
   assistContext?: Record<string, unknown>;
 }>();
@@ -123,6 +130,10 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   padding: 1rem;
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(4px);
+}
+
+.create-modal-backdrop--stacked {
+  z-index: 1300;
 }
 
 .create-modal {

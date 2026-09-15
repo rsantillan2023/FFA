@@ -7,7 +7,7 @@ import { extractMock } from "./mock-provider.js";
 
 import { extractOpenAI } from "./openai-provider.js";
 
-import { anthropicDisponible } from "./resolve-provider.js";
+import { anthropicDisponible, openAiDisponible } from "./resolve-provider.js";
 
 import { postProcessExtractResult } from "./post-process-extract.js";
 import { sanitizeExtractResult, validateExtractResult } from "./validate-schema.js";
@@ -65,8 +65,32 @@ async function runVisionExtract(
 
 
 
-/** OpenAI primero; si falla y hay ANTHROPIC_API_KEY, reintenta con Claude. */
+/** Claude primero; OpenAI solo como fallback si Anthropic falla. */
+async function extractAnthropicWithOpenAiFallback(input: VisionExtractInput): Promise<ExtractResult> {
+  try {
+    const result = await runWithIaContext({ actorTipo: "sistema" }, () =>
+      runVisionExtract("anthropic", input)
+    );
+    return prepareExtractResult(result);
+  } catch (anthropicErr) {
+    if (!openAiDisponible()) throw anthropicErr;
+    try {
+      const result = await runWithIaContext({ actorTipo: "sistema", esRespaldoAnthropic: true }, () =>
+        extractOpenAI(input)
+      );
+      return prepareExtractResult(result);
+    } catch (openAiErr) {
+      const aMsg = anthropicErr instanceof Error ? anthropicErr.message : String(anthropicErr);
+      const oMsg = openAiErr instanceof Error ? openAiErr.message : String(openAiErr);
+      if (/se requiere al menos una línea|sin líneas/i.test(aMsg)) {
+        throw anthropicErr instanceof Error ? anthropicErr : new Error(aMsg);
+      }
+      throw new Error(`Anthropic falló (${aMsg}); OpenAI falló (${oMsg})`);
+    }
+  }
+}
 
+/** OpenAI primero; Anthropic como fallback (modo legacy explícito). */
 async function extractOpenAiWithAnthropicFallback(
 
   input: VisionExtractInput
@@ -141,7 +165,7 @@ export async function extractDocument(input: ExtractDocumentInput): Promise<Extr
 
     case "anthropic":
 
-      result = prepareExtractResult(await runVisionExtract("anthropic", visionInput));
+      result = await extractAnthropicWithOpenAiFallback(visionInput);
 
       break;
 

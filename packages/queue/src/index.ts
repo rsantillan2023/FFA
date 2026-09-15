@@ -47,9 +47,20 @@ export { pipelineJobId } from "./job-id.js";
 
 export {
   getInlineActiveRun,
+  getInlineActiveRunForCaso,
+  countInlineActiveRuns,
+  listInlineActiveRuns,
   isInlineQueueBusy,
   setInlineActiveRun,
   clearInlineActiveRun,
   shouldRunInlineSerial,
   type InlineActiveRun,
 } from "./inline-serial.js";
+
+export {
+  preprocessInlineConcurrency,
+  inlineConcurrentStats,
+  isInlineConcurrentBusy,
+} from "./inline-concurrent.js";
+
+export { newPipelineRunId } from "./pipeline-run-id.js";

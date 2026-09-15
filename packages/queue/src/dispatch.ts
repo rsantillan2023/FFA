@@ -1,7 +1,8 @@
 import type { InfraConfig } from "@ffa/infra";
 import { readEnvTimeoutMs, withTimeout } from "@ffa/shared";
 import { Queue } from "bullmq";
-import { getRedisConnection } from "./index.js";
+import { enqueueInlineConcurrent, preprocessInlineConcurrency } from "./inline-concurrent.js";
+import { QUEUE_NAMES, getRedisConnection } from "./index.js";
 import {
   clearInlineActiveRun,
   enqueueInlineSerial,
@@ -92,6 +93,8 @@ export async function dispatchJob<T>(
 
     if (shouldRunInlineSerial(queueName)) {
       enqueueInlineSerial(queueName, run);
+    } else if (queueName === QUEUE_NAMES.PREPROCESS) {
+      enqueueInlineConcurrent(queueName, preprocessInlineConcurrency(), run);
     } else {
       setImmediate(() => {
         void run();

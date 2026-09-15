@@ -19,10 +19,20 @@
               <h2 :id="titleId" class="cdm-hero__title">
                 {{ detalle?.numero ?? "Cargando…" }}
               </h2>
+              <p v-if="referenciaTitulo" class="cdm-hero__ref">{{ referenciaTitulo }}</p>
+              <p v-if="identidadTitulo" class="cdm-hero__ident">{{ identidadTitulo }}</p>
               <div v-if="detalle" class="cdm-hero__badges">
                 <span class="cdm-badge cdm-badge--estado" :class="`cdm-badge--${detalle.estado}`">
                   <i :class="estadoIcon(detalle.estado)" aria-hidden="true"></i>
                   {{ estadoLabel(detalle.estado) }}
+                </span>
+                <span
+                  v-if="procEstadoLabel"
+                  class="cdm-badge"
+                  :class="procEstadoLabel === 'En curso' ? 'cdm-badge--proc-curso' : 'cdm-badge--proc-det'"
+                  :title="procEstadoTooltip"
+                >
+                  {{ procEstadoLabel }}
                 </span>
                 <span v-if="detalle.semaforo" class="cdm-badge cdm-badge--semaforo">
                   <SemaforoIndicator :value="detalle.semaforo" size="lg" />
@@ -186,6 +196,10 @@
                     <i v-else :class="pipelineStepIcon(e.id)" aria-hidden="true"></i>
                   </div>
                   <span class="cdm-step__label">{{ pipelineFriendlyMeta(e).titulo }}</span>
+                  <span
+                    v-if="pipelineEtapaProgresoPct(e) != null"
+                    class="cdm-step__pct"
+                  >{{ pipelineEtapaProgresoPct(e) }}%</span>
                 </div>
               </div>
             </section>
@@ -193,9 +207,25 @@
             <!-- Meta rápida -->
             <div class="cdm-meta-row">
               <span><i class="fas fa-inbox" aria-hidden="true"></i> {{ canalLabel(detalle.canal) }}</span>
+              <span v-if="remitenteDisplay">
+                <i class="fas fa-envelope" aria-hidden="true"></i>
+                {{ remitenteDisplay }}
+              </span>
               <span v-if="detalle.moneda">
                 <i class="fas fa-coins" aria-hidden="true"></i>
                 {{ detalle.moneda }} ({{ detalle.escala ?? "—" }})
+              </span>
+              <span
+                v-if="detalle.diferenciaCuadraturaPct != null"
+                :class="detalle.cuadraturaOk ? 'cdm-meta--ok' : 'cdm-meta--fail'"
+                :title="cuadraturaTooltip"
+              >
+                <i class="fas fa-scale-balanced" aria-hidden="true"></i>
+                Δ {{ formatDiferenciaCuadraturaPct(detalle.diferenciaCuadraturaPct) }}
+              </span>
+              <span v-if="detalle.prioridad">
+                <i class="fas fa-arrow-up" aria-hidden="true"></i>
+                Prioridad P{{ detalle.prioridad }}
               </span>
               <span>
                 <i class="fas fa-calendar" aria-hidden="true"></i>
@@ -206,6 +236,11 @@
                 {{ lineasRevisionCount }} línea(s) a revisar
               </span>
             </div>
+
+            <p v-if="detalle.observaciones?.trim()" class="cdm-obs">
+              <i class="fas fa-note-sticky" aria-hidden="true"></i>
+              {{ detalle.observaciones.trim() }}
+            </p>
 
             <!-- Tabs -->
             <nav class="cdm-tabs" role="tablist" aria-label="Secciones del detalle">
@@ -240,6 +275,10 @@
                   <div class="cdm-pipeline-item__body">
                     <div class="cdm-pipeline-item__head">
                       <strong>{{ pipelineFriendlyMeta(e).titulo }}</strong>
+                      <span
+                        v-if="pipelineEtapaProgresoPct(e) != null"
+                        class="cdm-chip cdm-chip--sm cdm-chip--pct"
+                      >{{ pipelineEtapaProgresoPct(e) }}%</span>
                       <span class="cdm-chip cdm-chip--sm" :class="chipClass(pipelinePasoEstado(e, index, pipelineEtapas))">
                         {{ pipelinePasoEstadoLabel(pipelinePasoEstado(e, index, pipelineEtapas)) }}
                       </span>
@@ -345,6 +384,9 @@
                     <p>{{ calidadLabel(d.calidadOrigen) }}</p>
                     <div class="cdm-doc-card__meta">
                       <span><i class="fas fa-file" aria-hidden="true"></i> {{ d.paginaCount }} pág.</span>
+                      <span v-if="d.remitenteEmail">
+                        <i class="fas fa-envelope" aria-hidden="true"></i> {{ d.remitenteEmail }}
+                      </span>
                       <span v-if="d.procesamiento?.etapaActual">
                         <i class="fas fa-cog" aria-hidden="true"></i> {{ d.procesamiento.etapaActual }}
                       </span>
@@ -414,6 +456,8 @@
 <script setup lang="ts">
 import {
   CasoEstado,
+  casoReferenciaGrilla,
+  formatDiferenciaCuadraturaPct,
   type CasoProgresoDto,
   type LineaContableDto,
   type PipelineEtapaDto,
@@ -427,12 +471,23 @@ import { puedeIrARevision, puedeVerInforme } from "../utils/casoAcciones";
 import { casoEstadoLabel } from "../utils/casoEstadoDisplay";
 import {
   pipelineDetalleAmigable,
+  pipelineEtapaProgresoPct,
   pipelineFriendlyMeta,
   pipelinePasoEstado,
   pipelinePasoEstadoLabel,
   pipelineResumen,
   type PipelinePasoEstado,
 } from "../utils/pipelineDisplay";
+
+const PROCESSING_ESTADOS = new Set<string>([
+  CasoEstado.RECIBIDO,
+  CasoEstado.EN_COLA,
+  CasoEstado.PREPROCESANDO,
+  CasoEstado.EXTRAYENDO,
+  CasoEstado.NORMALIZANDO,
+  CasoEstado.CLASIFICANDO,
+  CasoEstado.VALIDANDO,
+]);
 
 const props = withDefaults(
   defineProps<{
@@ -567,6 +622,69 @@ const canRevision = computed(() =>
 );
 
 const canInforme = computed(() => puedeVerInforme(props.detalle?.hasInforme));
+
+const referenciaTitulo = computed(() => {
+  if (!props.detalle) return "";
+  return casoReferenciaGrilla(props.detalle);
+});
+
+const identidadTitulo = computed(() => {
+  const d = props.detalle;
+  if (!d) return "";
+  const id = d.identidadResuelta;
+  if (id?.razonSocial?.trim()) {
+    return id.rut?.trim() ? `${id.razonSocial.trim()} · ${id.rut.trim()}` : id.razonSocial.trim();
+  }
+  if (d.contribuyente?.razonSocial) {
+    const rs = d.contribuyente.razonSocial;
+    return d.contribuyente.rut ? `${rs} · ${d.contribuyente.rut}` : rs;
+  }
+  return "";
+});
+
+const remitenteDisplay = computed(() => {
+  const d = props.detalle;
+  if (!d) return "";
+  return (
+    d.remitenteEmail?.trim() ||
+    d.documentos?.find((doc) => doc.remitenteEmail?.trim())?.remitenteEmail?.trim() ||
+    ""
+  );
+});
+
+const cuadraturaTooltip = computed(() => {
+  const d = props.detalle;
+  if (!d || d.diferenciaCuadraturaPct == null) {
+    return "Sin validación de cuadratura aún";
+  }
+  if (d.cuadraturaOk) {
+    return "Cuadratura OK: Activo = Pasivo + Patrimonio neto";
+  }
+  return `Desbalance: ${formatDiferenciaCuadraturaPct(d.diferenciaCuadraturaPct)} entre Activo y Pasivo + Patrimonio neto`;
+});
+
+const procEstadoLabel = computed((): "En curso" | "Detenido" | null => {
+  const d = props.detalle;
+  if (!d || !PROCESSING_ESTADOS.has(d.estado)) return null;
+  if (d.procesamientoPausado || props.progreso?.pausado) return "Detenido";
+  const motor = props.progreso?.motor?.estado;
+  if (motor === "inactivo") return "Detenido";
+  return "En curso";
+});
+
+const procEstadoTooltip = computed(() => {
+  if (procEstadoLabel.value === "Detenido") {
+    return props.progreso?.ultimoError
+      ? `Procesamiento detenido: ${props.progreso.ultimoError}`
+      : "Procesamiento detenido — sin avance ni job activo.";
+  }
+  if (procEstadoLabel.value === "En curso") {
+    return props.progreso?.motor?.estado === "en_cola"
+      ? "En cola — esperando turno en el worker."
+      : "Procesamiento automático en marcha.";
+  }
+  return "";
+});
 
 const tabs = computed(() => [
   { id: "resumen" as const, label: "Proceso", icon: "fas fa-list-check", count: null },
@@ -750,10 +868,25 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 }
 
 .cdm-hero__title {
-  margin: 0.15rem 0 0.5rem;
+  margin: 0.15rem 0 0.25rem;
   font-size: 1.35rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.cdm-hero__ref {
+  margin: 0 0 0.15rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: 0.95;
+}
+
+.cdm-hero__ident {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  opacity: 0.82;
 }
 
 .cdm-hero__badges {
@@ -776,6 +909,14 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
 .cdm-badge--semaforo {
   background: rgba(255, 255, 255, 0.12);
   padding: 0.35rem 0.55rem;
+}
+
+.cdm-badge--proc-curso {
+  background: color-mix(in srgb, #22c55e 35%, rgba(255, 255, 255, 0.15));
+}
+
+.cdm-badge--proc-det {
+  background: color-mix(in srgb, #f59e0b 35%, rgba(255, 255, 255, 0.15));
 }
 
 .cdm-badge--semaforo :deep(.semaforo-ind__label) {
@@ -1138,9 +1279,23 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   max-width: 72px;
 }
 
+.cdm-step__pct {
+  font-size: 0.52rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+}
+
 .cdm-step--en_curso .cdm-step__label {
   color: var(--brand-ink);
   font-weight: 600;
+}
+
+.cdm-chip--pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--line));
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel));
 }
 
 /* Meta row */
@@ -1157,6 +1312,30 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   margin-right: 0.3rem;
   color: var(--brand);
   opacity: 0.85;
+}
+
+.cdm-meta--ok {
+  color: var(--ok);
+}
+
+.cdm-meta--fail {
+  color: var(--bad);
+}
+
+.cdm-obs {
+  margin: -0.35rem 0 0.85rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.cdm-obs i {
+  margin-right: 0.35rem;
+  color: var(--brand);
 }
 
 /* Tabs */

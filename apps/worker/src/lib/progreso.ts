@@ -5,7 +5,8 @@ const ETAPA_PCT: Record<string, number> = {
   extract: 35,
   normalize: 55,
   classify: 75,
-  validate: 90,
+  validate: 88,
+  pre_revision: 95,
   en_revision: 100,
 };
 

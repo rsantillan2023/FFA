@@ -1,4 +1,4 @@
-import type { PipelineEtapaDto } from "@ffa/shared";
+import { CasoEstado, type PipelineEtapaDto, type PipelineSubPasoDto } from "@ffa/shared";
 
 export type PipelinePasoEstado = "listo" | "en_curso" | "pendiente";
 
@@ -199,6 +199,43 @@ export function formatDuracionSegundos(seg: number): string {
   return rm > 0 ? `${h} h ${rm} min` : `${h} h`;
 }
 
+export function pipelineSubPasoEstadoCorto(estado: PipelineSubPasoDto["estado"]): string {
+  switch (estado) {
+    case "listo":
+      return "OK";
+    case "en_curso":
+      return "Trabajando";
+    case "espera":
+      return "En cola";
+    default:
+      return "Pendiente";
+  }
+}
+
+/** Línea compacta para una sub-fase AA.2 (cola / preproceso / extracción). */
+export function pipelineSubPasoMetaLine(sub: PipelineSubPasoDto): string {
+  const parts: string[] = [];
+  if (sub.estado === "espera" && sub.esperaSegundos != null && sub.esperaSegundos > 0) {
+    parts.push(`espera ${formatDuracionSegundos(sub.esperaSegundos)}`);
+  }
+  if (sub.estado === "en_curso" && sub.trabajoSegundos != null && sub.trabajoSegundos > 0) {
+    parts.push(`trabajo ${formatDuracionSegundos(sub.trabajoSegundos)}`);
+  }
+  if (sub.resultado && sub.estado === "listo") {
+    parts.push(sub.resultado);
+  } else if (sub.detalle && (sub.estado === "espera" || sub.estado === "en_curso")) {
+    parts.push(sub.detalle);
+  }
+  return parts.join(" · ");
+}
+
+/** Sub-fase activa dentro de AA.2, si existe. */
+export function pipelineSubPasoActivo(
+  etapa: PipelineEtapaDto
+): PipelineSubPasoDto | undefined {
+  return etapa.subPasos?.find((s) => s.estado === "en_curso" || s.estado === "espera");
+}
+
 /** Línea secundaria del popover: hora, duración, % y detalle amigable. */
 export function pipelineEtapaMetaLine(
   etapa: PipelineEtapaDto,
@@ -223,7 +260,27 @@ export function pipelineEtapaMetaLine(
     }
   }
 
-  if (
+  const subActivo = pipelineSubPasoActivo(etapa);
+  if (subActivo && bulbColor === "azul") {
+    if (subActivo.estado === "espera") {
+      if (subActivo.esperaSegundos != null && subActivo.esperaSegundos > 0) {
+        parts.push(`en cola ${formatDuracionSegundos(subActivo.esperaSegundos)}`);
+      } else {
+        parts.push("en cola — sin trabajo activo");
+      }
+    } else if (subActivo.trabajoSegundos != null && subActivo.trabajoSegundos > 0) {
+      parts.push(`${subActivo.label} · ${formatDuracionSegundos(subActivo.trabajoSegundos)}`);
+    } else {
+      parts.push(subActivo.label);
+    }
+    if (
+      etapa.esperaSegundos != null &&
+      etapa.esperaSegundos > 0 &&
+      subActivo.estado === "en_curso"
+    ) {
+      parts.push(`cola previa ${formatDuracionSegundos(etapa.esperaSegundos)}`);
+    }
+  } else if (
     etapa.duracionSegundos != null &&
     etapa.duracionSegundos > 0 &&
     (bulbColor === "azul" || bulbColor === "verde" || (bulbColor === "rojo" && etapa.enCurso))
@@ -245,6 +302,54 @@ export function pipelineEtapaMetaLine(
   }
 
   return parts.join(" · ");
+}
+
+/** Avance global (0–100) asociado a cada estado operativo del caso. */
+export const CASO_ESTADO_PROGRESO_PCT: Partial<Record<string, number>> = {
+  [CasoEstado.RECIBIDO]: 5,
+  [CasoEstado.EN_COLA]: 8,
+  [CasoEstado.PREPROCESANDO]: 15,
+  [CasoEstado.EXTRAYENDO]: 35,
+  [CasoEstado.NORMALIZANDO]: 55,
+  [CasoEstado.CLASIFICANDO]: 75,
+  [CasoEstado.VALIDANDO]: 90,
+  [CasoEstado.EN_REVISION]: 100,
+  [CasoEstado.APROBADO]: 100,
+  [CasoEstado.INFORME_GENERADO]: 100,
+};
+
+export function casoEstadoProgresoPct(estado: string): number | null {
+  const pct = CASO_ESTADO_PROGRESO_PCT[estado];
+  return pct != null ? pct : null;
+}
+
+/** % global del diagrama de etapas en bandeja (nodos Carga → Revisión). */
+export function ingestFlowStepProgresoPct(step: { id: string; filter: string }): number {
+  if (step.id === "rev") return 100;
+  return casoEstadoProgresoPct(step.filter) ?? 0;
+}
+
+/** Avance global del pipeline (0–100) al completar cada paso AA. */
+const PIPELINE_AA_PCT_AL_COMPLETAR: Record<string, number> = {
+  "AA.1": 8,
+  "AA.2": 55,
+  "AA.3": 75,
+  "AA.4": 90,
+  "AA.5": 100,
+  "AA.6": 100,
+  "AA.7": 100,
+  "AA.8": 100,
+};
+
+/** % global a mostrar por paso: en curso → dato vivo; listo → hito al cerrar el paso. */
+export function pipelineEtapaProgresoPct(etapa: PipelineEtapaDto): number | null {
+  if (etapa.enCurso) {
+    return etapa.progresoPct ?? null;
+  }
+  if (etapa.completada) {
+    return PIPELINE_AA_PCT_AL_COMPLETAR[etapa.id] ?? 100;
+  }
+  return null;
 }
 
 export function pipelineResumen(etapas: PipelineEtapaDto[]): {

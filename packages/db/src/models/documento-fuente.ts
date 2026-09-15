@@ -33,6 +33,25 @@ const documentoFuenteSchema = new Schema(
       miniaturaKey: String,
       paginasNormalizadas: [String],
     },
+    /** Snapshot del último preproceso OK — reutilizable en foja cero sin re-renderizar. */
+    preprocessCache: {
+      hashSha256: String,
+      guardadoEn: Date,
+      mimeType: String,
+      calidadOrigen: String,
+      tipoDocumento: String,
+      paginaCount: Number,
+      preprocessFlags: {
+        concatenado: { type: Boolean, default: false },
+        incompleto: { type: Boolean, default: false },
+        rotacionGrados: { type: Number, default: 0 },
+        unidadesDetectadas: { type: Number, default: 1 },
+      },
+      derivados: {
+        miniaturaKey: String,
+        paginasNormalizadas: [String],
+      },
+    },
     tipoDocumento: {
       type: String,
       enum: [

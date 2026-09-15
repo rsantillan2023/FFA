@@ -16,6 +16,7 @@ export const CASO_ESTADO_LABELS: Record<string, string> = {
   [CasoEstado.ERROR]: "Error",
   [CasoEstado.PENDIENTE_CALIDAD]: "Extracción fallida",
   [CasoEstado.CANCELADO]: "Cancelado",
+  [CasoEstado.ARCHIVADO]: "Archivado",
 };
 
 export const CASO_ESTADO_HINTS: Partial<Record<string, string>> = {

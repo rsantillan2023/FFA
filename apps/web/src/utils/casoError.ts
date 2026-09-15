@@ -35,10 +35,21 @@ export function extractCasoErrorInfo(caso: CasoDetalleDto): CasoErrorInfo {
   const nota = falloEntry?.nota?.trim();
 
   const esDuplicado = nota?.toLowerCase().includes("duplicado") ?? false;
+  const esFalloCarga =
+    nota?.includes("Fallo al guardar el archivo") ||
+    nota?.includes("Fallo al encolar preprocesamiento") ||
+    doc?.procesamiento?.ultimoErrorCodigo === "CARGA_STORAGE" ||
+    doc?.procesamiento?.ultimoErrorCodigo === "CARGA_ENCOLA";
+  const esFalloPreproceso =
+    nota?.includes("Preproceso fallido") ||
+    caso.observaciones?.includes("preprocesamiento no produjo") ||
+    doc?.procesamiento?.ultimoErrorCodigo === "PREPROCESO_DERIVADOS";
   const esExtraccionFallida =
-    caso.estado === CasoEstado.PENDIENTE_CALIDAD ||
-    Boolean(docError) ||
-    /extracción fallida|extract falló/i.test(nota ?? "");
+    !esFalloCarga &&
+    !esFalloPreproceso &&
+    (caso.estado === CasoEstado.PENDIENTE_CALIDAD ||
+      Boolean(docError) ||
+      /extracción fallida|extract falló/i.test(nota ?? ""));
 
   let titulo = esDuplicado ? "Documento duplicado" : "Error de procesamiento";
   let mensaje =
@@ -49,7 +60,35 @@ export function extractCasoErrorInfo(caso: CasoDetalleDto): CasoErrorInfo {
   let sugerencias: string[] = [];
   let codigo = doc?.procesamiento?.ultimoErrorCodigo;
 
-  if (esExtraccionFallida && !esDuplicado) {
+  if (esFalloPreproceso && !esDuplicado) {
+    titulo = "Preproceso fallido";
+    mensaje =
+      caso.observaciones?.trim() ||
+      nota?.replace(/^Preproceso fallido —\s*/i, "") ||
+      "El PDF no generó páginas legibles para extracción.";
+    if (docError && docError !== mensaje) detalles = [docError];
+    sugerencias = [
+      "Revisá el PDF original: a veces la vista previa del navegador muestra texto que el render interno no puede pintar.",
+      "Usá «Foja cero» (reproceso completo) o cargá una exportación alternativa del mismo balance.",
+    ];
+    codigo = codigo ?? "PREPROCESO_DERIVADOS";
+  } else if (esFalloCarga && !esDuplicado) {
+    const esStorage =
+      nota?.includes("Fallo al guardar el archivo") ||
+      codigo === "CARGA_STORAGE";
+    titulo = esStorage ? "Error al guardar el archivo" : "Error al encolar procesamiento";
+    mensaje = nota ?? docError ?? mensaje;
+    if (docError && docError !== mensaje) detalles = [docError];
+    sugerencias = esStorage
+      ? [
+          "Verificá espacio en disco o permisos de almacenamiento.",
+          "Reintentá con «Foja cero» o subí el archivo de nuevo.",
+        ]
+      : [
+          "Verificá que Redis/worker estén activos (o modo inline en desarrollo).",
+          "Usá «Reprocesar» o «Foja cero» en la fila del caso.",
+        ];
+  } else if (esExtraccionFallida && !esDuplicado) {
     const rawError = docError ?? nota?.replace(/^Extracción fallida tras \d+ intentos:\s*/i, "") ?? mensaje;
     const diagnosis = diagnoseExtractFailure(rawError, {
       tamanoBytes: doc?.tamanoBytes,

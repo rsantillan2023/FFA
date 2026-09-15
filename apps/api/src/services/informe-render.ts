@@ -41,6 +41,8 @@ body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:va
 .badge--rojo{background:#fee2e2;color:#991b1b}
 .badge--preliminar{background:rgba(255,255,255,.2);color:#fff}
 .badge--final{background:#fff;color:var(--brand-dark)}
+.cierre-parcial-banner{margin:0 2.5rem;padding:1rem 1.15rem;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:.9rem;line-height:1.45}
+.cierre-parcial-banner strong{display:block;margin-bottom:.35rem;color:#78350f;font-size:.95rem}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;padding:1.5rem 2.5rem;background:var(--bg);border-bottom:1px solid var(--border)}
 .kpi{background:#fff;border:1px solid var(--border);border-radius:10px;padding:1rem 1.1rem}
 .kpi-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 .25rem}
@@ -74,6 +76,7 @@ table.data tr:nth-child(even) td{background:#fafbfc}
 </div>
 <div>{{semaforo_badge}} {{estado_badge}}</div>
 </div>
+{{cierre_parcial_banner}}
 <dl class="meta-grid">
 <dt>Caso</dt><dd>{{numero_caso}}</dd>
 <dt>Contribuyente</dt><dd>{{contribuyente}}</dd>
@@ -150,6 +153,15 @@ function proseHtml(text: string): string {
     .split(/\n{2,}/)
     .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`)
     .join("");
+}
+
+function cierreParcialBannerHtml(ficha: FichaCanonicaDocument): string {
+  if (!ficha.cierreParcial) return "";
+  const motivo = ficha.motivoCierreParcial?.trim();
+  const motivoHtml = motivo
+    ? `<p>${escapeHtml(motivo)}</p>`
+    : "<p>La ficha se cerró con observaciones documentadas por el analista.</p>";
+  return `<aside class="cierre-parcial-banner" role="note"><strong>Limitaciones de la ficha — cierre parcial</strong>${motivoHtml}<p>Este informe refleja la información disponible al momento del cierre; puede incluir cuadratura pendiente o líneas sin confirmar.</p></aside>`;
 }
 
 function semaforoBadge(semaforo?: string | null): string {
@@ -408,6 +420,7 @@ export function renderInformeHtml(input: {
     confianza_pct: input.caso.confianzaGlobal != null ? `${input.caso.confianzaGlobal}%` : "—",
     semaforo_badge: semaforoBadge(input.caso.semaforo ?? input.ficha.validacionesResumen?.semaforo),
     estado_badge: estadoBadge(input.estadoInforme),
+    cierre_parcial_banner: cierreParcialBannerHtml(input.ficha),
     resumen_ejecutivo: escapeHtml(
       input.resumenEjecutivo?.trim() ||
         buildResumenEjecutivo({

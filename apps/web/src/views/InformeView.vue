@@ -56,9 +56,18 @@
       </template>
     </PageHeader>
 
+    <div v-if="ficha?.cierreParcial" class="card cierre-parcial-banner" role="note">
+      <h3><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Cierre parcial</h3>
+      <p v-if="ficha.motivoCierreParcial">{{ ficha.motivoCierreParcial }}</p>
+      <p v-else>Esta ficha se cerró con observaciones. El informe puede reflejar cuadratura o líneas pendientes.</p>
+    </div>
+
     <div v-if="ficha" class="card ficha-resumen">
       <div class="ficha-resumen__head">
-        <h3><i class="fas fa-file-circle-check" aria-hidden="true"></i> Ficha aprobada</h3>
+        <h3>
+          <i class="fas fa-file-circle-check" aria-hidden="true"></i>
+          {{ ficha.cierreParcial ? "Ficha cerrada con observaciones" : "Ficha aprobada" }}
+        </h3>
         <span v-if="ficha.validacionesResumen?.semaforo" class="ficha-resumen__meta">
           <SemaforoIndicator :value="ficha.validacionesResumen.semaforo" />
         </span>
@@ -352,6 +361,29 @@ onUnmounted(() => {
   color: var(--brand);
   text-decoration: none;
   font-size: 0.875rem;
+}
+
+.cierre-parcial-banner {
+  margin-bottom: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+}
+
+.cierre-parcial-banner h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cierre-parcial-banner p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #78350f;
+  line-height: 1.45;
 }
 
 .ficha-resumen {

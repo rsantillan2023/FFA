@@ -51,7 +51,16 @@ const VALID_TRANSITIONS: Record<string, CasoEstado[]> = {
   [CasoEstado.ERROR]: [CasoEstado.EN_COLA, CasoEstado.RECHAZADO],
   [CasoEstado.RECHAZADO]: [CasoEstado.EN_COLA],
   [CasoEstado.CANCELADO]: [CasoEstado.EN_COLA],
+  [CasoEstado.ARCHIVADO]: [CasoEstado.EN_COLA],
 };
+
+for (const key of Object.keys(VALID_TRANSITIONS)) {
+  if (key === CasoEstado.ARCHIVADO) continue;
+  const destinos = VALID_TRANSITIONS[key]!;
+  if (!destinos.includes(CasoEstado.ARCHIVADO)) {
+    destinos.push(CasoEstado.ARCHIVADO);
+  }
+}
 
 export async function generarNumeroCaso(): Promise<string> {
   const year = new Date().getFullYear();

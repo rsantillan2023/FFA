@@ -2,8 +2,10 @@ import type {
   CoberturaTablaPagina,
   ExtractedLine,
   ExtractResult,
+  PaginaClasificada,
   SeccionPagina,
 } from "../types.js";
+import type { EstadoFinanciero } from "@ffa/shared";
 import { normalizarDenominacion } from "../utils/text.js";
 import { inferPeriodoFromColumna } from "./infer-periodo.js";
 import { parseMontoLocale } from "./parse-monto-locale.js";
@@ -25,9 +27,18 @@ export interface FilaTablaDetectada {
   valoresTexto: string[];
   pagina: number;
   seccion: SeccionPagina;
+  textoPagina?: string;
 }
 
-function parseCtx(result: ExtractResult) {
+export interface BuildLineasTextoCtx {
+  moneda?: string;
+  escala?: string;
+  escalaFactor?: number;
+  locale?: "es-AR";
+  ejercicio?: number;
+}
+
+function parseCtx(result: ExtractResult): BuildLineasTextoCtx {
   return {
     moneda: result.metadata.moneda,
     escala: result.metadata.escala,
@@ -35,6 +46,51 @@ function parseCtx(result: ExtractResult) {
     locale: (result.metadata as { localeNumerico?: string }).localeNumerico as "es-AR" | undefined,
     ejercicio: result.metadata.periodo?.ejercicio,
   };
+}
+
+function limpiarDenominacionTabla(denom: string): string {
+  return denom
+    .replace(/^negocios (no )?bancarios\s+/i, "")
+    .replace(/^miles de pesos chilenos\s+(estado de resultados\s+\d+\s+)?/i, "")
+    .replace(/^estado de resultados\s+\d+\s+/i, "")
+    .trim();
+}
+
+/** Infiere activo/pasivo/patrimonio según denominación y contexto de la página. */
+export function inferEstadoFinancieroDesdePagina(
+  denominacion: string,
+  seccion: SeccionPagina,
+  textoPagina?: string
+): EstadoFinanciero | "flujo" | "resultados" {
+  const d = normalizarDenominacion(denominacion);
+  if (seccion === "resultados") return "resultados";
+  if (seccion === "flujo_efectivo") return "flujo";
+
+  if (
+    /pasivo|prestamo|deuda|provision|impuesto por pagar|cuenta por pagar|deposito|obligacion|arrendamiento/.test(
+      d
+    )
+  ) {
+    return "pasivo";
+  }
+  if (/patrimonio|capital emitido|reserva|ganancia acumulada|participaciones no control|primas de emisi/.test(d)) {
+    return "patrimonio";
+  }
+
+  const t = (textoPagina ?? "").toLowerCase();
+  if (seccion === "balance") {
+    if (/pasivos y patrimonio|patrimonio neto y pasivos|patrimonio y pasivos/.test(t)) {
+      if (/patrimonio|capital emitido|reserva|ganancia acumulada|participaciones|primas de emisi/.test(d)) {
+        return "patrimonio";
+      }
+      return "pasivo";
+    }
+    if (/\bactivos\b/.test(t) && !/pasivos y patrimonio/.test(t)) {
+      return "activo";
+    }
+  }
+
+  return "activo";
 }
 
 /** Detecta filas con montos en texto de tabla financiera (independiente del LLM). */
@@ -50,7 +106,7 @@ export function detectarFilasTablaEnTexto(
   const seen = new Set<string>();
 
   for (const m of t.matchAll(FILA_TABLA_RE)) {
-    let denom = m[1]?.trim().replace(/\s+/g, " ") ?? "";
+    let denom = limpiarDenominacionTabla(m[1]?.trim().replace(/\s+/g, " ") ?? "");
     if (denom.length < 4 || denom.length > 90 || SECCION_HEADER.test(denom)) continue;
     if (/^tabla\s+\d+/i.test(denom)) continue;
     if (/^tres meses|^doce meses|^al 31 de|^e diciembre de/i.test(denom)) continue;
@@ -72,7 +128,7 @@ export function detectarFilasTablaEnTexto(
     if (seen.has(key)) continue;
     seen.add(key);
 
-    filas.push({ denominacion: denom, valoresTexto, pagina, seccion });
+    filas.push({ denominacion: denom, valoresTexto, pagina, seccion, textoPagina: t });
   }
 
   return filas;
@@ -97,7 +153,7 @@ function indiceCanonico(_numValores: number, _seccion: SeccionPagina): number {
   return 0;
 }
 
-function filaATlineas(fila: FilaTablaDetectada, ctx: ReturnType<typeof parseCtx>): ExtractedLine[] {
+function filaATlineas(fila: FilaTablaDetectada, ctx: BuildLineasTextoCtx): ExtractedLine[] {
   const out: ExtractedLine[] = [];
   const indices = [indiceCanonico(fila.valoresTexto.length, fila.seccion)];
 
@@ -126,18 +182,11 @@ function filaATlineas(fila: FilaTablaDetectada, ctx: ReturnType<typeof parseCtx>
       paginaNumero: fila.pagina,
       seccionPagina: fila.seccion,
       fuentePrioridad: "canonico",
-      estadoFinancieroLinea:
-        fila.seccion === "balance"
-          ? /pasivo|pr[eé]stamo|deuda|provision|impuesto por pagar|cuenta por pagar/.test(
-              normalizarDenominacion(fila.denominacion)
-            )
-            ? "pasivo"
-            : /patrimonio|capital|reserva/.test(normalizarDenominacion(fila.denominacion))
-              ? "patrimonio"
-              : "activo"
-          : fila.seccion === "flujo_efectivo"
-            ? "flujo"
-            : "resultados",
+      estadoFinancieroLinea: inferEstadoFinancieroDesdePagina(
+        fila.denominacion,
+        fila.seccion,
+        fila.textoPagina
+      ),
       confianzaExtraccion: 0.82,
       metodoExtraccion: "heuristica",
     });
@@ -150,6 +199,33 @@ function lineaKey(linea: ExtractedLine): string {
   const denom = normalizarDenominacion(linea.denominacionOriginal);
   const col = linea.columnaOrigen ?? linea.periodo?.ejercicio ?? "";
   return `${linea.paginaNumero}|${denom}|${col}|${linea.seccionPagina ?? ""}`;
+}
+
+/** Construye líneas desde texto escaneado (sin depender de Vision). */
+export function buildLineasDesdeTextoEscaneado(
+  paginas: PaginaClasificada[],
+  ctx: BuildLineasTextoCtx
+): ExtractedLine[] {
+  const out: ExtractedLine[] = [];
+  const seen = new Set<string>();
+
+  for (const pg of paginas) {
+    if (!pg.textoEscaneado?.trim()) continue;
+    if (!["balance", "resultados", "flujo_efectivo"].includes(pg.seccion)) continue;
+
+    const filas = detectarFilasTablaEnTexto(pg.textoEscaneado, pg.pagina, pg.seccion);
+    for (const fila of filas) {
+      fila.textoPagina = pg.textoEscaneado;
+      for (const linea of filaATlineas(fila, ctx)) {
+        const key = lineaKey(linea);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(linea);
+      }
+    }
+  }
+
+  return out;
 }
 
 /** Completa líneas faltantes desde texto escaneado del PDF. */

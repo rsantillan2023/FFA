@@ -1,5 +1,24 @@
 <template>
-  <Teleport to="body">
+  <div v-if="embedded" class="doc-embed">
+    <header class="doc-embed__head">
+      <div>
+        <h2 class="doc-embed__title">Documento origen</h2>
+        <p v-if="lineLabel" class="doc-embed__subtitle">{{ lineLabel }}</p>
+      </div>
+      <div v-if="totalPages > 1" class="pager">
+        <button class="btn btn-ghost btn-sm" type="button" :disabled="page <= 1" @click="page--">‹</button>
+        <span>Pág. {{ page }} / {{ totalPages }}</span>
+        <button class="btn btn-ghost btn-sm" type="button" :disabled="page >= totalPages" @click="page++">›</button>
+      </div>
+    </header>
+    <div ref="docContainerEmbed" class="doc-embed__body">
+      <canvas v-show="isPdf" ref="pdfCanvasEmbed" class="doc-canvas" />
+      <img v-show="!isPdf && imageUrl" :src="imageUrl ?? undefined" alt="Documento" class="doc-image" />
+      <p v-show="loadingDoc" class="doc-modal__loading">Cargando documento…</p>
+      <p v-show="!loadingDoc && !isPdf && !imageUrl" class="doc-modal__loading">Sin vista previa</p>
+    </div>
+  </div>
+  <Teleport v-else to="body">
     <div v-if="modelValue" class="doc-modal-backdrop" @click.self="close">
       <div class="doc-modal" role="dialog" aria-modal="true" aria-labelledby="doc-modal-title" @click.stop>
         <header class="doc-modal__head">
@@ -38,7 +57,7 @@
 
 <script setup lang="ts">
 import * as pdfjsLib from "pdfjs-dist";
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { getToken } from "../api/client";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -56,7 +75,11 @@ const props = defineProps<{
   highlightBbox?: Bbox | null;
   highlightPage?: number;
   lineLabel?: string;
+  /** Panel lateral en revisión (sin modal). */
+  embedded?: boolean;
 }>();
+
+const isActive = computed(() => props.embedded || props.modelValue);
 
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
@@ -67,7 +90,13 @@ const totalPages = ref(1);
 const isPdf = ref(false);
 const loadingDoc = ref(false);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
+const pdfCanvasEmbed = ref<HTMLCanvasElement | null>(null);
 const docContainer = ref<HTMLElement | null>(null);
+const docContainerEmbed = ref<HTMLElement | null>(null);
+
+function activeCanvas(): HTMLCanvasElement | null {
+  return props.embedded ? pdfCanvasEmbed.value : pdfCanvas.value;
+}
 const imageUrl = ref<string | null>(null);
 let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
 let isMounted = false;
@@ -159,29 +188,29 @@ function drawBboxHighlight(
 }
 
 async function renderPdfPage(seq = loadSeq): Promise<void> {
-  if (!isMounted || seq !== loadSeq || !pdfDoc || !pdfCanvas.value) return;
+  const canvas = activeCanvas();
+  if (!isMounted || seq !== loadSeq || !pdfDoc || !canvas) return;
   const pdfPage = await pdfDoc.getPage(page.value);
-  if (!isMounted || seq !== loadSeq || !pdfCanvas.value) return;
-  const viewport = pdfPage.getViewport({ scale: 1.35 });
-  const canvas = pdfCanvas.value;
+  if (!isMounted || seq !== loadSeq || !activeCanvas()) return;
+  const viewport = pdfPage.getViewport({ scale: props.embedded ? 1.05 : 1.35 });
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   canvas.height = viewport.height;
   canvas.width = viewport.width;
   await pdfPage.render({ canvasContext: ctx, viewport }).promise;
-  if (!isMounted || seq !== loadSeq || !pdfCanvas.value) return;
+  if (!isMounted || seq !== loadSeq || !activeCanvas()) return;
   drawBboxHighlight(ctx, viewport);
 }
 
 watch(page, () => {
-  if (isPdf.value && props.modelValue) void renderPdfPage();
+  if (isPdf.value && isActive.value) void renderPdfPage();
 });
 
 watch(
-  () => props.modelValue,
+  isActive,
   (open) => {
     if (open) void loadDocument();
-    else {
+    else if (!props.embedded) {
       loadSeq++;
       revokeImageUrl();
       void destroyPdfDoc();
@@ -190,26 +219,26 @@ watch(
 );
 
 watch(
-  () => [props.highlightBbox, props.highlightPage, props.initialPage] as const,
+  () => [props.highlightBbox, props.highlightPage, props.initialPage, props.documentUrl] as const,
   () => {
-    if (props.modelValue && isPdf.value) void renderPdfPage();
+    if (isActive.value && isPdf.value) void renderPdfPage();
   }
 );
 
 function onKeydown(e: KeyboardEvent): void {
-  if (e.key === "Escape" && props.modelValue) close();
+  if (e.key === "Escape" && props.modelValue && !props.embedded) close();
 }
 
 onMounted(() => {
   isMounted = true;
-  document.addEventListener("keydown", onKeydown);
-  if (props.modelValue) void loadDocument();
+  if (!props.embedded) document.addEventListener("keydown", onKeydown);
+  if (isActive.value) void loadDocument();
 });
 
 onUnmounted(() => {
   isMounted = false;
   loadSeq++;
-  document.removeEventListener("keydown", onKeydown);
+  if (!props.embedded) document.removeEventListener("keydown", onKeydown);
   revokeImageUrl();
   void destroyPdfDoc();
 });
@@ -309,5 +338,48 @@ onUnmounted(() => {
 .doc-modal__loading {
   color: var(--ink-soft);
   padding: 2rem;
+}
+
+.doc-embed {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.doc-embed__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--brand) 5%, var(--panel));
+}
+
+.doc-embed__title {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--brand-ink);
+}
+
+.doc-embed__subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.doc-embed__body {
+  overflow: auto;
+  padding: 0.65rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--ink) 4%, var(--panel-2));
+  min-height: 0;
 }
 </style>

@@ -38,20 +38,28 @@
 
         <dl class="proc-modal__facts">
           <div>
-            <dt>Etapa</dt>
-            <dd>{{ etapaLabel }}</dd>
+            <dt>Sub-fase activa</dt>
+            <dd>{{ subFaseLabel }}</dd>
           </div>
           <div>
             <dt>Estado del caso</dt>
             <dd>{{ estadoLabel(progreso.estado) }}</dd>
           </div>
           <div>
-            <dt>Tiempo en esta etapa</dt>
-            <dd>{{ tiempoEnEtapa }}</dd>
+            <dt>Espera en cola</dt>
+            <dd>{{ tiempoEsperaCola }}</dd>
+          </div>
+          <div>
+            <dt>Trabajo activo</dt>
+            <dd>{{ tiempoTrabajoActivo }}</dd>
           </div>
           <div>
             <dt>Motor</dt>
             <dd>{{ progreso.motor?.backend ?? "—" }}</dd>
+          </div>
+          <div>
+            <dt>Etapa técnica</dt>
+            <dd>{{ etapaLabel }}</dd>
           </div>
         </dl>
 
@@ -65,25 +73,12 @@
           {{ progreso.ultimoError }}
         </p>
 
-        <div v-if="pipelineEtapas?.length" class="proc-modal__stepper">
-          <div
-            v-for="(e, index) in pipelineEtapas"
-            :key="e.id"
-            class="proc-step"
-            :class="`proc-step--${pasoEstado(e, index)}`"
-          >
-            <div class="proc-step__node">
-              <i v-if="e.completada" class="fas fa-check" aria-hidden="true"></i>
-              <i
-                v-else-if="pasoEstado(e, index) === 'en_curso'"
-                class="fas fa-spinner fa-spin"
-                aria-hidden="true"
-              ></i>
-              <span v-else class="proc-step__dot"></span>
-            </div>
-            <span class="proc-step__label">{{ e.nombre }}</span>
-          </div>
-        </div>
+        <PipelineEtapasList
+          v-if="pipelineEtapas?.length"
+          titulo="Etapas del pipeline"
+          :etapas="pipelineEtapas"
+          :procesando="motorProcesando"
+        />
 
         <section v-if="progreso.eventosRecientes?.length" class="proc-modal__log">
           <h3>Actividad reciente</h3>
@@ -104,8 +99,9 @@
         </p>
 
         <p class="proc-modal__hint">
-          El porcentaje avanza por etapas del pipeline (no página a página del PDF). Durante
-          <strong>Extracción IA</strong> es normal que se quede en ~35% varios minutos.
+          En <strong>Lectura del documento</strong> hay tres sub-fases: cola (solo espera),
+          preproceso PDF y extracción IA. Los tiempos de cola no son trabajo activo — en modo
+          inline solo corre una extracción a la vez. El % avanza por etapas, no página a página.
         </p>
       </template>
     </div>
@@ -121,10 +117,15 @@
 </template>
 
 <script setup lang="ts">
-import type { CasoProgresoDto, PipelineEtapaDto } from "@ffa/shared";
+import { CasoEstado, type CasoProgresoDto, type PipelineEtapaDto } from "@ffa/shared";
 import { computed } from "vue";
 import CreateFormModal from "./CreateFormModal.vue";
+import PipelineEtapasList from "./PipelineEtapasList.vue";
 import { casoEstadoLabel } from "../utils/casoEstadoDisplay";
+import {
+  formatDuracionSegundos,
+  pipelineSubPasoActivo,
+} from "../utils/pipelineDisplay";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -168,14 +169,55 @@ const etapaLabel = computed(() => {
   return k ? (ETAPA_LABELS[k] ?? k) : "—";
 });
 
-const tiempoEnEtapa = computed(() => {
-  const s = props.progreso?.segundosEnEtapa;
-  if (s == null) return "—";
-  if (s < 60) return `${s} s`;
-  const m = Math.floor(s / 60);
-  const rest = s % 60;
-  return rest > 0 ? `${m} min ${rest} s` : `${m} min`;
+const etapaAA2 = computed(() => props.pipelineEtapas?.find((e) => e.id === "AA.2"));
+const subActivo = computed(() =>
+  etapaAA2.value ? pipelineSubPasoActivo(etapaAA2.value) : undefined
+);
+
+const motorProcesando = computed(() => {
+  const e = props.progreso?.motor?.estado;
+  if (props.progreso?.pausado) return false;
+  return e === "activo" || e === "en_cola";
 });
+
+const subFaseLabel = computed(() => {
+  const sub = subActivo.value;
+  if (sub) return sub.label;
+  if (props.progreso?.motor?.estado === "en_cola") return "En cola";
+  return etapaLabel.value;
+});
+
+const tiempoEsperaCola = computed(() => {
+  const sub = subActivo.value;
+  if (sub?.estado === "espera" && sub.esperaSegundos != null) {
+    return formatDuracionSegundos(sub.esperaSegundos);
+  }
+  const cola = etapaAA2.value?.subPasos?.find((s) => s.id === "cola");
+  if (cola?.esperaSegundos != null && cola.esperaSegundos > 0) {
+    return formatDuracionSegundos(cola.esperaSegundos);
+  }
+  if (props.progreso?.motor?.estado === "en_cola") return "En curso";
+  return "—";
+});
+
+const tiempoTrabajoActivo = computed(() => {
+  const sub = subActivo.value;
+  if (sub?.estado === "en_curso" && sub.trabajoSegundos != null) {
+    return formatDuracionSegundos(sub.trabajoSegundos);
+  }
+  if (props.progreso?.motor?.estado === "activo") {
+    const s = props.progreso.segundosEnEtapa;
+    if (s != null && s > 0) return formatDuracionSegundos(s);
+    return "En curso";
+  }
+  return "—";
+});
+
+const extraccionEnCurso = computed(
+  () =>
+    props.progreso?.estado === CasoEstado.EXTRAYENDO ||
+    props.progreso?.etapaActual === "extract"
+);
 
 const motorClase = computed(() => {
   const e = props.progreso?.motor?.estado;
@@ -183,26 +225,39 @@ const motorClase = computed(() => {
   if (e === "activo") return "activo";
   if (e === "en_cola") return "cola";
   if (e === "inactivo") return "inactivo";
+  if (e === "desconocido" && extraccionEnCurso.value) return "activo";
   return "neutral";
 });
 
 const motorTitulo = computed(() => {
   if (props.progreso?.pausado) return "Procesamiento pausado";
-  switch (props.progreso?.motor?.estado) {
+  const sub = subActivo.value;
+  if (sub?.estado === "espera") return "En cola — esperando turno";
+  if (sub?.estado === "en_curso") return `${sub.label} en curso`;
+  const e = props.progreso?.motor?.estado;
+  if (e === "desconocido" && extraccionEnCurso.value) {
+    return "Extracción IA en curso";
+  }
+  switch (e) {
     case "activo":
-      return "Job en ejecución";
+      return extraccionEnCurso.value ? "Extracción IA en curso" : "Job en ejecución";
     case "en_cola":
-      return "En cola — esperando worker";
+      return "En cola — esperando turno";
     case "inactivo":
-      return "Sin actividad detectada";
+      return extraccionEnCurso.value
+        ? "Extracción detenida — posible trabado"
+        : "Sin actividad detectada";
     case "pausado":
       return "Pausado";
     default:
-      return "Estado del motor";
+      return "Estado del procesamiento";
   }
 });
 
 const motorIcono = computed(() => {
+  if (extraccionEnCurso.value && motorClase.value === "activo") {
+    return "fas fa-wand-magic-sparkles fa-spin";
+  }
   switch (motorClase.value) {
     case "activo":
       return "fas fa-gears fa-spin";
@@ -219,32 +274,6 @@ const motorIcono = computed(() => {
 
 function estadoLabel(estado: string): string {
   return casoEstadoLabel(estado);
-}
-
-/** Índice del paso según etapa técnica del motor (prioridad sobre flags completada). */
-const ETAPA_PASO_INDEX: Record<string, number> = {
-  recibido: 0,
-  en_cola: 0,
-  preprocess: 1,
-  extract: 1,
-  normalize: 2,
-  classify: 3,
-  validate: 4,
-  en_revision: 5,
-  completado: 8,
-};
-
-function pasoEstado(e: PipelineEtapaDto, index: number): string {
-  const etapaKey = props.progreso?.etapaActual;
-  const activeIdx = etapaKey != null ? ETAPA_PASO_INDEX[etapaKey] : undefined;
-  if (activeIdx != null) {
-    if (index < activeIdx) return "listo";
-    if (index === activeIdx) return "en_curso";
-    return "pendiente";
-  }
-  if (e.completada) return "listo";
-  const firstPending = props.pipelineEtapas?.findIndex((x) => !x.completada) ?? -1;
-  return index === firstPending ? "en_curso" : "pendiente";
 }
 
 function formatLogDate(iso: string): string {
@@ -339,9 +368,15 @@ function formatLogDate(iso: string): string {
 
 .proc-modal__facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem 1rem;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .proc-modal__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .proc-modal__facts dt {
@@ -375,59 +410,6 @@ function formatLogDate(iso: string): string {
   background: var(--bad-bg);
   color: var(--bad);
   border: 1px solid color-mix(in srgb, var(--bad) 25%, var(--line));
-}
-
-.proc-modal__stepper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.5rem;
-  padding: 0.65rem;
-  border-radius: 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-}
-
-.proc-step {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--ink-soft);
-}
-
-.proc-step__node {
-  width: 1.25rem;
-  height: 1.25rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  font-size: 0.65rem;
-}
-
-.proc-step--listo .proc-step__node {
-  background: var(--ok-bg);
-  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
-  color: var(--ok);
-}
-
-.proc-step--en_curso .proc-step__node {
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.proc-step--en_curso .proc-step__label {
-  color: var(--brand-ink);
-  font-weight: 600;
-}
-
-.proc-step__dot {
-  width: 0.35rem;
-  height: 0.35rem;
-  border-radius: 999px;
-  background: var(--line-2);
 }
 
 .proc-modal__log h3 {

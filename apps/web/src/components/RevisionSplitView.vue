@@ -5,17 +5,17 @@
         type="button"
         class="lines-summary__chip"
         :class="[
-          lineasPendientes > 0 ? 'lines-summary__chip--pending' : 'lines-summary__chip--ok',
+          lineasPendientesConRubro > 0 ? 'lines-summary__chip--pending' : 'lines-summary__chip--ok',
           { 'lines-summary__chip--active': lineasFiltro === 'pendientes' },
         ]"
         :aria-pressed="lineasFiltro === 'pendientes'"
-        :disabled="lineasPendientes === 0"
+        :disabled="lineasPendientesConRubro === 0"
+        :title="'Con rubro asignado — falta revisar o confirmar (no incluye sin rubro)'"
         @click="toggleFiltro('pendientes')"
       >
-        <i :class="lineasPendientes > 0 ? 'fas fa-list-check' : 'fas fa-circle-check'" aria-hidden="true"></i>
+        <i :class="lineasPendientesConRubro > 0 ? 'fas fa-list-check' : 'fas fa-circle-check'" aria-hidden="true"></i>
         <span>
-          <strong>{{ lineasPendientes }}</strong>
-          {{ lineasPendientes === 1 ? "pendiente" : "pendientes" }}
+          <strong>{{ lineasPendientesConRubro }}</strong> a revisar
         </span>
       </button>
       <button
@@ -24,10 +24,33 @@
         class="lines-summary__chip lines-summary__chip--critical"
         :class="{ 'lines-summary__chip--active': lineasFiltro === 'sin-rubro' }"
         :aria-pressed="lineasFiltro === 'sin-rubro'"
+        :title="'Sin rubro institucional — elegí cuenta en el combo'"
         @click="toggleFiltro('sin-rubro')"
       >
         <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
         <span><strong>{{ lineasSinRubroCount }}</strong> sin rubro</span>
+      </button>
+      <button
+        v-if="lineasRuidoCount > 0"
+        type="button"
+        class="lines-summary__chip lines-summary__chip--warn"
+        :class="{ 'lines-summary__chip--active': lineasFiltro === 'ruido' }"
+        :aria-pressed="lineasFiltro === 'ruido'"
+        @click="toggleFiltro('ruido')"
+      >
+        <i class="fas fa-broom" aria-hidden="true"></i>
+        <span><strong>{{ lineasRuidoCount }}</strong> posible ruido OCR</span>
+      </button>
+      <button
+        v-if="lineasDuplicadasCount > 0"
+        type="button"
+        class="lines-summary__chip lines-summary__chip--dup"
+        :class="{ 'lines-summary__chip--active': lineasFiltro === 'duplicados' }"
+        :aria-pressed="lineasFiltro === 'duplicados'"
+        @click="toggleFiltro('duplicados')"
+      >
+        <i class="fas fa-clone" aria-hidden="true"></i>
+        <span><strong>{{ lineasDuplicadasCount }}</strong> duplicadas</span>
       </button>
       <button
         v-if="totalLineas != null"
@@ -38,9 +61,21 @@
         @click="toggleFiltro('all')"
       >
         <i class="fas fa-table" aria-hidden="true"></i>
-        <span><strong>{{ totalLineas }}</strong> en el balance</span>
+        <span>
+          <strong>{{ lineasVisiblesCount }}</strong> en el balance
+          <span v-if="lineasDuplicadasCount > 0" class="lines-summary__chip-sub">
+            (+{{ lineasDuplicadasCount }} ocultas)
+          </span>
+        </span>
       </button>
     </div>
+
+    <p v-if="lineasDuplicadasCount > 0 && lineasFiltro !== 'duplicados'" class="lines-dup-hint">
+      Hay {{ lineasDuplicadasCount }} fila(s) repetida(s) colapsada(s). Usá el filtro
+      <button type="button" class="link-btn" @click="toggleFiltro('duplicados')">duplicadas</button>
+      para verlas o
+      <strong>Eliminar duplicados</strong> en la barra superior.
+    </p>
 
     <div v-if="!unificado" class="lines-toolbar">
       <div class="lines-toolbar__left">
@@ -87,55 +122,155 @@
           Vista previa — incluye rubros/montos editados sin guardar.
           <span v-if="isRecalculandoTotales"> Actualizando totales…</span>
         </p>
-        <div class="balance-totales">
-        <article class="balance-totales__card balance-totales__card--activo">
-          <span class="balance-totales__num">1</span>
-          <div>
-            <span class="balance-totales__label">Total Activo</span>
-            <strong class="balance-totales__value">{{ formatMonto(totalesBalance.activo) }}</strong>
-          </div>
-        </article>
-        <article class="balance-totales__card balance-totales__card--pasivo">
-          <span class="balance-totales__num">2</span>
-          <div>
-            <span class="balance-totales__label">Total Pasivo</span>
-            <strong class="balance-totales__value">{{ formatMonto(totalesBalance.pasivo) }}</strong>
-          </div>
-        </article>
-        <article class="balance-totales__card balance-totales__card--patrimonio">
-          <span class="balance-totales__num">3</span>
-          <div>
-            <span class="balance-totales__label">Total Patrimonio</span>
-            <strong class="balance-totales__value">{{ formatMonto(totalesBalance.patrimonio) }}</strong>
-          </div>
-        </article>
-        <article
-          class="balance-totales__card balance-totales__card--cuadra"
-          :class="totalesBalance.cuadraturaOk ? 'balance-totales__card--ok' : 'balance-totales__card--fail'"
+        <div
+          class="balance-strip"
+          :class="totalesBalance.cuadraturaOk ? 'balance-strip--ok' : 'balance-strip--fail'"
         >
-          <i
-            :class="totalesBalance.cuadraturaOk ? 'fas fa-circle-check' : 'fas fa-circle-exclamation'"
-            aria-hidden="true"
-          ></i>
-          <div>
-            <span class="balance-totales__label">Cuadratura (1 = 2 + 3)</span>
-            <strong class="balance-totales__value balance-totales__value--sm">
-              {{
-                totalesBalance.cuadraturaOk
-                  ? "OK"
-                  : `${formatMonto(totalesBalance.activo)} ≠ ${formatMonto(totalesBalance.pasivo + totalesBalance.patrimonio)}`
-              }}
-            </strong>
+          <header class="balance-strip__head">
+            <div class="balance-strip__head-row">
+              <div class="balance-strip__head-left">
+                <h3 class="balance-strip__title">Cuadratura del balance</h3>
+                <p class="balance-strip__subtitle">
+                  Total Activo = Total Pasivo + Total Patrimonio
+                  <span v-if="totalesBalance.lineasExcluidasCuadratura > 0" class="balance-strip__subtitle-note">
+                    · {{ totalesBalance.lineasCuadratura }} línea(s) de detalle
+                    ({{ totalesBalance.lineasExcluidasCuadratura }} excluidas: totales, ER/flujo en balance, agrupadores, comparativas)
+                  </span>
+                </p>
+              </div>
+              <p v-if="razonSocial" class="balance-strip__empresa" :title="razonSocial">
+                {{ razonSocial }}
+              </p>
+            </div>
+          </header>
+          <div class="balance-strip__grid">
+            <article class="balance-strip__card balance-strip__card--activo">
+              <span class="balance-strip__badge">1</span>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Total Activo</span>
+                <strong class="balance-strip__value" :title="formatMonto(totalesBalance.activo)">
+                  {{ formatMontoConMoneda(totalesBalance.activo) }}
+                </strong>
+              </div>
+            </article>
+            <article class="balance-strip__card balance-strip__card--pasivo">
+              <span class="balance-strip__badge">2</span>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Total Pasivo</span>
+                <strong class="balance-strip__value" :title="formatMonto(totalesBalance.pasivo)">
+                  {{ formatMontoConMoneda(totalesBalance.pasivo) }}
+                </strong>
+              </div>
+            </article>
+            <article class="balance-strip__card balance-strip__card--patrimonio">
+              <span class="balance-strip__badge">3</span>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Total Patrimonio</span>
+                <strong class="balance-strip__value" :title="formatMonto(totalesBalance.patrimonio)">
+                  {{ formatMontoConMoneda(totalesBalance.patrimonio) }}
+                </strong>
+              </div>
+            </article>
+            <article
+              class="balance-strip__card balance-strip__card--verdict"
+              :class="totalesBalance.cuadraturaOk ? 'balance-strip__card--verdict-ok' : 'balance-strip__card--verdict-fail'"
+            >
+              <i
+                class="balance-strip__verdict-icon"
+                :class="totalesBalance.cuadraturaOk ? 'fas fa-circle-check' : 'fas fa-circle-exclamation'"
+                aria-hidden="true"
+              ></i>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Cuadratura</span>
+                <strong v-if="totalesBalance.cuadraturaOk" class="balance-strip__value balance-strip__value--ok">
+                  Cuadra — 1 = 2 + 3
+                </strong>
+                <template v-else>
+                  <strong class="balance-strip__value balance-strip__value--fail">No cuadra</strong>
+                  <span class="balance-strip__diff">
+                    Diferencia:
+                    {{ formatMontoConMoneda(Math.abs(totalesBalance.diferencia)) }}
+                    <span class="balance-strip__diff-pct">
+                      ({{ formatDiferenciaCuadraturaPct(totalesBalance.diferenciaPct) }})
+                    </span>
+                  </span>
+                  <span class="balance-strip__rhs">
+                    2 + 3 = {{ formatMontoConMoneda(totalesBalance.pasivo + totalesBalance.patrimonio) }}
+                  </span>
+                </template>
+              </div>
+            </article>
           </div>
-        </article>
+          <div
+            v-if="totalesBalance.resultadosLineas > 0 || totalesBalance.sinRubroLineas > 0"
+            class="balance-strip__info"
+          >
+            <article
+              v-if="totalesBalance.resultadosLineas > 0"
+              class="balance-strip__info-item balance-strip__info-item--resultados"
+            >
+              <span class="balance-strip__badge">4</span>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Total Resultados</span>
+                <strong class="balance-strip__value" :title="formatMonto(totalesBalance.resultados)">
+                  {{ formatMontoConMoneda(totalesBalance.resultados) }}
+                </strong>
+                <span class="balance-strip__info-hint">
+                  {{ totalesBalance.resultadosLineas }} línea(s) · informativo, no entra en 1 = 2 + 3
+                </span>
+              </div>
+            </article>
+            <article
+              v-if="totalesBalance.sinRubroLineas > 0"
+              class="balance-strip__info-item balance-strip__info-item--sin-rubro"
+            >
+              <span class="balance-strip__badge balance-strip__badge--muted">—</span>
+              <div class="balance-strip__card-body">
+                <span class="balance-strip__label">Sin rubro</span>
+                <strong class="balance-strip__value" :title="formatMonto(totalesBalance.sinRubro)">
+                  {{ formatMontoConMoneda(totalesBalance.sinRubro) }}
+                </strong>
+                <span class="balance-strip__info-hint">
+                  {{ totalesBalance.sinRubroLineas }} línea(s) · no suma en cuadratura hasta asignar rubro
+                </span>
+              </div>
+            </article>
+          </div>
         </div>
+        <details
+          v-if="!totalesBalance.cuadraturaOk && lineasImpactoCuadratura.length"
+          class="balance-impacto-details"
+        >
+          <summary class="balance-impacto-details__summary">
+            {{ lineasImpactoCuadratura.length }} línea(s) clave para revisar la diferencia
+          </summary>
+          <ul class="balance-impacto-details__list">
+            <li v-for="item in lineasImpactoCuadratura" :key="item.linea.id">
+              <button
+                type="button"
+                class="balance-impacto-details__btn"
+                :title="`${item.linea.denominacionOriginal} — ${formatMonto(item.impacto)}`"
+                @click="emit('scrollLinea', item.linea.id)"
+              >
+                <span class="balance-impacto-details__concepto">{{ truncar(item.linea.denominacionOriginal, 36) }}</span>
+                <span class="balance-impacto-details__monto">{{ formatMontoCompact(item.impacto) }}</span>
+              </button>
+            </li>
+          </ul>
+        </details>
       </div>
 
       <section
         v-for="grupo in lineasGruposEstado"
         :key="grupo.estado"
         class="lines-section lines-section--plan-grupo"
-        :class="grupo.numero ? `lines-section--estado-${grupo.numero}` : 'lines-section--sin-clasificar'"
+        :class="
+          grupo.estado === 'subtotales'
+            ? 'lines-section--subtotales'
+            : grupo.numero
+              ? `lines-section--estado-${grupo.numero}`
+              : 'lines-section--sin-clasificar'
+        "
       >
         <header v-if="grupo.numero" class="lines-section__head lines-section__head--plan">
           <h3>
@@ -154,15 +289,17 @@
           editable
           editar-aprobadas
           show-estado
+          :allow-delete="allowDelete"
+          :ia-linea-en-curso-id="iaLineaEnCursoId"
+          :ia-lineas-recientes-ids="iaLineasRecientesIds"
+          :ids-duplicados="idsEnGrupoDuplicado"
+          :duplicados-ocultos-por-id="duplicadosOcultosPorId"
           @guardar="onGuardar"
           @aprobar="onAprobar"
+          @eliminar="onEliminar"
           @ia-aplicada="emit('iaAplicada')"
           @ver-documento="emitVerDocumentoLinea"
         />
-        <footer v-if="grupo.numero" class="lines-grupo-total">
-          <span>Total {{ grupo.numero }} — {{ grupo.label }}</span>
-          <strong>{{ formatMonto(grupo.total) }}</strong>
-        </footer>
       </section>
     </div>
 
@@ -175,8 +312,14 @@
         editable
         editar-aprobadas
         show-estado
+        :allow-delete="allowDelete"
+        :ia-linea-en-curso-id="iaLineaEnCursoId"
+        :ia-lineas-recientes-ids="iaLineasRecientesIds"
+        :ids-duplicados="idsEnGrupoDuplicado"
+        :duplicados-ocultos-por-id="duplicadosOcultosPorId"
         @guardar="onGuardar"
         @aprobar="onAprobar"
+        @eliminar="onEliminar"
         @ia-aplicada="emit('iaAplicada')"
         @ver-documento="emitVerDocumentoLinea"
       />
@@ -200,8 +343,10 @@
           :moneda="moneda"
           :caso-id="casoId"
           editable
+          :allow-delete="allowDelete"
           @guardar="onGuardar"
           @aprobar="onAprobar"
+          @eliminar="onEliminar"
           @ia-aplicada="emit('iaAplicada')"
           @ver-documento="emitVerDocumentoLinea"
         />
@@ -224,8 +369,10 @@
           :moneda="moneda"
           :caso-id="casoId"
           editable
+          :allow-delete="allowDelete"
           @guardar="onGuardar"
           @aprobar="onAprobar"
+          @eliminar="onEliminar"
           @ia-aplicada="emit('iaAplicada')"
           @ver-documento="emitVerDocumentoLinea"
         />
@@ -249,7 +396,9 @@
           :caso-id="casoId"
           editable
           editar-aprobadas
+          :allow-delete="allowDelete"
           @guardar="onGuardar"
+          @eliminar="onEliminar"
           @ia-aplicada="emit('iaAplicada')"
           @ver-documento="emitVerDocumentoLinea"
         />
@@ -268,9 +417,21 @@ import { useDeferredBalancePreview } from "../composables/useDeferredBalancePrev
 import {
   agruparLineasPorEstado,
   calcularTotalesBalance,
+  formatDiferenciaCuadraturaPct,
+  rubroDeLinea,
   type LineaDraftOverride,
 } from "../utils/balanceTotales";
-import { formatMonto } from "../utils/formatMonto";
+import {
+  colapsarDuplicadosLineas,
+  colapsarDuplicadosEscala,
+  esLineaEnGrupoDuplicado,
+} from "../utils/linea-duplicados";
+import { motivoExclusionCuadratura } from "../utils/lineaCuadratura";
+import {
+  esLineaProbableRuidoRevision,
+  type LineaImpactoCuadratura,
+} from "../utils/revisionResumen";
+import { formatMonto, formatMontoCompact } from "../utils/formatMonto";
 import LineList from "./RevisionLineList.vue";
 
 const props = defineProps<{
@@ -288,21 +449,46 @@ const props = defineProps<{
   ordenPorPlan?: boolean;
   /** Mostrar botón para ingreso manual de líneas (J.21). */
   allowManual?: boolean;
+  /** Permite eliminar filas erróneas de extracción. */
+  allowDelete?: boolean;
   /** Moneda ISO del expediente para mostrar en cada fila. */
   moneda?: string;
+  /** Razón social del expediente (cabecera de cuadratura). */
+  razonSocial?: string;
+  iaClasificacionActiva?: boolean;
+  iaLineaEnCursoId?: string;
+  iaLineasRecientesIds?: string[];
+  lineasImpactoCuadratura?: LineaImpactoCuadratura[];
 }>();
 
 const emit = defineEmits<{
   reload: [soloRevision: boolean];
   patchLinea: [lineaId: string, data: Record<string, unknown>];
   approveLinea: [lineaId: string];
+  eliminarLinea: [linea: LineaContableDto];
   reclasificarMasiva: [lineaId: string, data: { rubroInstitucionalId: string; motivo?: string }];
   verDocumento: [];
   verDocumentoLinea: [linea: LineaContableDto];
   agregarLinea: [];
   iaAplicada: [];
   draftOverridesChange: [overrides: Record<string, LineaDraftOverride>];
+  scrollLinea: [lineaId: string];
 }>();
+
+const lineasImpactoCuadratura = computed(() => props.lineasImpactoCuadratura ?? []);
+const allowDelete = computed(() => props.allowDelete ?? false);
+
+const monedaCodigo = computed(() => props.moneda?.trim().toUpperCase() ?? "");
+
+function formatMontoConMoneda(n: number): string {
+  const monto = formatMontoCompact(n);
+  return monedaCodigo.value ? `${monto} ${monedaCodigo.value}` : monto;
+}
+
+function truncar(texto: string, max: number): string {
+  const t = texto.trim();
+  return t.length <= max ? t : `${t.slice(0, max)}…`;
+}
 
 const {
   calcOverrides: lineDraftOverridesCalc,
@@ -318,8 +504,21 @@ watch(lineDraftOverridesCalc, (overrides) => {
 });
 
 const soloRevision = ref(true);
-type LineasFiltro = "all" | "pendientes" | "sin-rubro";
-const lineasFiltro = ref<LineasFiltro>("all");
+type LineasFiltro = "all" | "pendientes" | "sin-rubro" | "ruido" | "duplicados";
+const lineasFiltro = ref<LineasFiltro>("pendientes");
+
+watch(
+  () => props.iaClasificacionActiva,
+  (activa) => {
+    if (activa) {
+      lineasFiltro.value = "all";
+      if (soloRevision.value) {
+        soloRevision.value = false;
+        emit("reload", false);
+      }
+    }
+  }
+);
 
 function toggleFiltro(filtro: LineasFiltro): void {
   if (filtro === "all") {
@@ -330,7 +529,8 @@ function toggleFiltro(filtro: LineasFiltro): void {
     }
     return;
   }
-  if (filtro === "pendientes" && lineasPendientes.value === 0) return;
+  if (filtro === "pendientes" && lineasPendientesConRubro.value === 0) return;
+  if (filtro === "sin-rubro" && lineasSinRubroCount.value === 0) return;
   lineasFiltro.value = lineasFiltro.value === filtro ? "all" : filtro;
 }
 
@@ -345,34 +545,74 @@ watch(
   { immediate: true }
 );
 
-const lineasPendientes = computed(
-  () => props.lineasPendientes ?? props.lineas.filter((l) => l.requiereRevision && l.estado !== "aprobada").length
-);
-
 function esPendiente(l: LineaContableDto): boolean {
   return l.requiereRevision && l.estado !== "aprobada";
 }
 
+/** Rubro resuelto en el plan cargado (id o código, incl. referenciados en líneas). */
 function lineaTieneRubro(l: LineaContableDto): boolean {
-  return Boolean(l.rubroInstitucionalId || l.rubroCodigo);
+  return Boolean(rubroDeLinea(l, props.rubros));
 }
 
+/** Detalle sin rubro imputable (excluye subtotales/totales del PDF). */
+function lineaSinRubroResuelto(l: LineaContableDto): boolean {
+  return motivoExclusionCuadratura(l, rubroDeLinea(l, props.rubros)) === "sin_rubro";
+}
+
+const colapsoDuplicados = computed(() => colapsarDuplicadosLineas(props.lineas));
+
+/** Líneas para totales de balance: sin duplicados exactos ni pares escala ×1000. */
+const lineasParaCuadratura = computed(() =>
+  colapsarDuplicadosEscala(colapsoDuplicados.value.lineasVisibles)
+);
+
 const lineasSinRubro = computed(() =>
-  props.lineas.filter((l) => esPendiente(l) && !lineaTieneRubro(l))
+  colapsoDuplicados.value.lineasVisibles.filter((l) => lineaSinRubroResuelto(l))
 );
 
 const lineasSinRubroCount = computed(() => lineasSinRubro.value.length);
 
+const lineasRuidoCount = computed(() =>
+  props.lineas.filter((l) => esLineaProbableRuidoRevision(l)).length
+);
+
+/** Pendientes con rubro — revisión / confirmación (excluye sin rubro). */
+const lineasPendientesConRubro = computed(
+  () =>
+    colapsoDuplicados.value.lineasVisibles.filter((l) => esPendiente(l) && lineaTieneRubro(l)).length
+);
+
+/** Total pendientes (sin rubro + a revisar) — p. ej. pie de aprobación. */
+const lineasPendientesTotal = computed(
+  () =>
+    props.lineasPendientes ??
+    colapsoDuplicados.value.lineasVisibles.filter((l) => esPendiente(l)).length
+);
+
+const lineasDuplicadasCount = computed(() => colapsoDuplicados.value.duplicadasCount);
+const lineasVisiblesCount = computed(() => colapsoDuplicados.value.lineasVisibles.length);
+const idsEnGrupoDuplicado = computed(() => [...colapsoDuplicados.value.idsEnGrupoDuplicado]);
+const duplicadosOcultosPorId = computed(() => colapsoDuplicados.value.ocultasPorId);
+
+/** En vista normal se muestra una fila por grupo; el filtro «duplicados» lista todas las copias. */
+const lineasParaLista = computed(() =>
+  lineasFiltro.value === "duplicados" ? props.lineas : colapsoDuplicados.value.lineasVisibles
+);
+
 function lineaMatchesFiltro(l: LineaContableDto): boolean {
   if (lineasFiltro.value === "all") return true;
-  if (lineasFiltro.value === "pendientes") return esPendiente(l);
-  return esPendiente(l) && !lineaTieneRubro(l);
+  if (lineasFiltro.value === "pendientes") return esPendiente(l) && lineaTieneRubro(l);
+  if (lineasFiltro.value === "ruido") return esLineaProbableRuidoRevision(l);
+  if (lineasFiltro.value === "duplicados") {
+    return esLineaEnGrupoDuplicado(l, colapsoDuplicados.value.idsEnGrupoDuplicado);
+  }
+  return lineaSinRubroResuelto(l);
 }
 
-const lineasFiltradas = computed(() => props.lineas.filter(lineaMatchesFiltro));
+const lineasFiltradas = computed(() => lineasParaLista.value.filter(lineaMatchesFiltro));
 
 const muestraSeccionSinRubro = computed(
-  () => lineasFiltro.value === "all" || lineasFiltro.value === "pendientes" || lineasFiltro.value === "sin-rubro"
+  () => lineasFiltro.value === "all" || lineasFiltro.value === "sin-rubro"
 );
 
 const muestraSeccionParaAprobar = computed(
@@ -384,7 +624,7 @@ const muestraSeccionOk = computed(
 );
 
 const lineasParaAprobar = computed(() =>
-  props.lineas.filter((l) => esPendiente(l) && lineaTieneRubro(l))
+  colapsoDuplicados.value.lineasVisibles.filter((l) => esPendiente(l) && lineaTieneRubro(l))
 );
 
 const lineasOk = computed(() => props.lineas.filter((l) => !esPendiente(l)));
@@ -420,7 +660,7 @@ const lineasOrdenadas = computed(() => {
     });
   }
   const score = (l: LineaContableDto) => {
-    if (esPendiente(l) && !lineaTieneRubro(l)) return 0;
+    if (lineaSinRubroResuelto(l)) return 0;
     if (esPendiente(l)) return 1;
     return 2;
   };
@@ -434,7 +674,11 @@ const lineasOrdenadas = computed(() => {
 
 const totalesBalance = computed(() =>
   props.ordenPorPlan
-    ? calcularTotalesBalance(props.lineas, props.rubros, lineDraftOverridesCalc.value)
+    ? calcularTotalesBalance(
+        lineasParaCuadratura.value,
+        props.rubros,
+        lineDraftOverridesCalc.value
+      )
     : null
 );
 
@@ -449,7 +693,7 @@ type EmptyKind = "all-done" | "no-data" | "filter-empty";
 const emptyKind = computed((): EmptyKind => {
   const total = props.totalLineas ?? 0;
   if (props.lineas.length === 0 && total === 0) return "no-data";
-  if (lineasFiltro.value === "all" && soloRevision.value && total > 0 && lineasPendientes.value === 0) {
+  if (lineasFiltro.value === "all" && soloRevision.value && total > 0 && lineasPendientesTotal.value === 0) {
     return "all-done";
   }
   return "filter-empty";
@@ -473,6 +717,12 @@ const emptyDescription = computed(() => {
   }
   if (emptyKind.value === "no-data") {
     return "El procesamiento aún no generó filas para este caso, o la extracción falló. Revisá el expediente o reprocesá el documento.";
+  }
+  if (lineasFiltro.value === "ruido") {
+    return "Filas que parecen firmas, matrículas u otro texto del PDF — no son partidas contables. Eliminálas con el ícono de papelera.";
+  }
+  if (lineasFiltro.value === "duplicados") {
+    return "Mismo concepto y monto repetido. Usá «Eliminar duplicados» arriba para conservar solo la mejor fila de cada grupo.";
   }
   return "Probá otro filtro o usá «en el balance» para ver todas las líneas.";
 });
@@ -527,6 +777,10 @@ function onGuardar(lineaId: string, data: Record<string, unknown>): void {
 
 function onAprobar(lineaId: string): void {
   emit("approveLinea", lineaId);
+}
+
+function onEliminar(linea: LineaContableDto): void {
+  emit("eliminarLinea", linea);
 }
 </script>
 
@@ -592,6 +846,45 @@ function onAprobar(lineaId: string): void {
   border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
   background: var(--bad-bg);
   color: var(--bad);
+}
+
+.lines-summary__chip--warn {
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  color: var(--warn);
+}
+
+.lines-summary__chip--dup {
+  border-color: color-mix(in srgb, #6366f1 35%, var(--line));
+  background: color-mix(in srgb, #6366f1 10%, var(--panel));
+  color: #4338ca;
+}
+
+.lines-summary__chip-sub {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.lines-dup-hint {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, #6366f1 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, #6366f1 25%, var(--line));
+  color: var(--text, #334155);
+}
+
+.lines-dup-hint .link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #4338ca;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .lines-summary__chip--neutral {
@@ -698,6 +991,16 @@ function onAprobar(lineaId: string): void {
   border-color: color-mix(in srgb, var(--bad) 30%, var(--line));
 }
 
+.lines-section--subtotales {
+  border-color: color-mix(in srgb, var(--muted) 40%, var(--line));
+  opacity: 0.92;
+}
+
+.lines-section--subtotales .lines-section__head h3 {
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .lines-section--review {
   border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
 }
@@ -766,7 +1069,9 @@ function onAprobar(lineaId: string): void {
 .balance-totales-wrap {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.25rem;
+  padding: 0 0 0.35rem;
+  margin-bottom: 0.15rem;
 }
 
 .balance-totales__preview {
@@ -774,6 +1079,293 @@ function onAprobar(lineaId: string): void {
   font-size: 0.72rem;
   color: var(--warn);
   font-weight: 600;
+}
+
+.balance-totales__diff {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--bad, #dc2626);
+}
+
+.balance-impacto-details {
+  font-size: 0.72rem;
+}
+
+.balance-impacto-details__summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 0.15rem 0;
+  list-style: none;
+}
+
+.balance-impacto-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.balance-impacto-details__list {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.balance-impacto-details__btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.2rem 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink-soft);
+}
+
+.balance-impacto-details__btn:hover {
+  color: var(--brand);
+}
+
+.balance-impacto-details__concepto {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.balance-impacto-details__monto {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.balance-strip {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.balance-strip--ok {
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
+}
+
+.balance-strip--fail {
+  border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
+}
+
+.balance-strip__head {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--brand) 5%, var(--panel));
+}
+
+.balance-strip__head-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.balance-strip__head-left {
+  min-width: 0;
+}
+
+.balance-strip__empresa {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--brand-ink, var(--ink));
+  word-break: break-word;
+}
+
+.balance-strip__title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brand-ink);
+}
+
+.balance-strip__subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.balance-strip__subtitle-note {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+}
+
+.balance-strip__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem 0.65rem;
+}
+
+.balance-strip__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.balance-strip__verdict-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-size: 1rem;
+}
+
+.balance-strip__card--activo .balance-strip__badge {
+  background: #047857;
+}
+
+.balance-strip__card--pasivo .balance-strip__badge {
+  background: #b45309;
+}
+
+.balance-strip__card--patrimonio .balance-strip__badge {
+  background: #6d28d9;
+}
+
+.balance-strip__card--verdict {
+  grid-column: span 1;
+  border-width: 1px;
+}
+
+.balance-strip__card--verdict-ok {
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+  color: var(--ok);
+}
+
+.balance-strip__card--verdict-fail {
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+  background: color-mix(in srgb, var(--bad) 8%, var(--panel));
+}
+
+.balance-strip__badge {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.balance-strip__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.balance-strip__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.balance-strip__value {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.balance-strip__value--ok {
+  color: var(--ok);
+}
+
+.balance-strip__value--fail {
+  color: var(--bad, #dc2626);
+}
+
+.balance-strip__diff {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--bad, #dc2626);
+}
+
+.balance-strip__diff-pct {
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.balance-strip__rhs {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+
+.balance-strip__info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0 0.65rem 0.65rem;
+  border-top: 1px dashed var(--line);
+  margin-top: -0.15rem;
+  padding-top: 0.55rem;
+}
+
+.balance-strip__info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--ink-faint) 35%, var(--line));
+  background: color-mix(in srgb, var(--panel-2) 70%, var(--panel));
+}
+
+.balance-strip__info-item--resultados .balance-strip__badge {
+  background: #0369a1;
+}
+
+.balance-strip__info-item--sin-rubro .balance-strip__badge--muted {
+  background: var(--ink-faint);
+  font-size: 0.55rem;
+}
+
+.balance-strip__info-hint {
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .balance-strip__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .balance-strip__card--verdict {
+    grid-column: 1 / -1;
+  }
 }
 
 .balance-totales {
@@ -903,6 +1495,10 @@ function onAprobar(lineaId: string): void {
 
 .lines-section--estado-3 .lines-section__plan-num {
   background: #6d28d9;
+}
+
+.lines-section--estado-4 .lines-section__plan-num {
+  background: #0369a1;
 }
 
 .lines-grupo-total {

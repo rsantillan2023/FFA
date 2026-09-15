@@ -51,6 +51,7 @@
       <WorkflowDiagram
         :steps="workflowSteps"
         :caso-id="casoId"
+        bare
         show-dates
         show-links
         :selected-id="selectedId"
@@ -70,6 +71,9 @@
         <div class="proceso-resumen__text">
           <strong>{{ pipelineResumenData.completados }} de {{ pipelineResumenData.total }}</strong>
           pasos completados
+          <span v-if="pipelineAvancePct != null" class="proceso-resumen__global">
+            · Avance global: <strong>{{ pipelineAvancePct }}%</strong>
+          </span>
           <span v-if="pipelineResumenData.pasoActual" class="proceso-resumen__actual">
             · Ahora: {{ pipelineResumenData.pasoActual }}
           </span>
@@ -77,12 +81,12 @@
         <div
           class="proceso-resumen__bar"
           role="progressbar"
-          :aria-valuenow="pipelineResumenData.pct"
+          :aria-valuenow="pipelineAvancePct ?? 0"
           aria-valuemin="0"
           aria-valuemax="100"
-          :aria-label="`Avance del procesamiento: ${pipelineResumenData.pct} por ciento`"
+          :aria-label="`Avance global del procesamiento: ${pipelineAvancePct ?? 0} por ciento`"
         >
-          <span class="proceso-resumen__fill" :style="{ width: `${pipelineResumenData.pct}%` }" />
+          <span class="proceso-resumen__fill" :style="{ width: `${pipelineAvancePct ?? 0}%` }" />
         </div>
       </div>
 
@@ -102,6 +106,13 @@
             <div class="proceso-paso__title-row">
               <strong>{{ pipelineFriendlyMeta(e).titulo }}</strong>
               <span class="proceso-paso__badge">{{ pipelinePasoEstadoLabel(pipelinePasoEstado(e, index, pipeline)) }}</span>
+              <span
+                v-if="pipelineEtapaProgresoPct(e) != null"
+                class="proceso-paso__pct"
+                :title="e.enCurso ? 'Avance global del pipeline en este paso' : 'Avance global al completar este paso'"
+              >
+                {{ pipelineEtapaProgresoPct(e) }}%
+              </span>
             </div>
             <p class="proceso-paso__detalle">{{ pipelineDetalleAmigable(e) }}</p>
             <button
@@ -225,6 +236,7 @@ import { casoEstadoLabel } from "../utils/casoEstadoDisplay";
 import { puedeReiniciarFojaCero as casoPuedeReiniciarFojaCero } from "../utils/casoAcciones";
 import {
   pipelineDetalleAmigable,
+  pipelineEtapaProgresoPct,
   pipelineFriendlyMeta,
   pipelinePasoEstado,
   pipelinePasoEstadoLabel,
@@ -289,6 +301,10 @@ const workflowSteps = computed<WorkflowStepView[]>(() => {
 });
 
 const pipelineResumenData = computed(() => pipelineResumen(pipeline.value));
+
+const pipelineAvancePct = computed(
+  () => progreso.value?.progresoPct ?? pipelineResumenData.value.pct
+);
 
 const historialItems = computed<CasoEstadoHistorialEntry[]>(() => {
   const items = caso.value?.estadoHistorial ?? [];
@@ -532,6 +548,11 @@ watch(casoId, () => {
   color: var(--ink);
 }
 
+.proceso-resumen__global strong {
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
 .proceso-resumen__bar {
   height: 0.45rem;
   border-radius: 999px;
@@ -626,6 +647,28 @@ watch(casoId, () => {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink-soft);
+}
+
+.proceso-paso__pct {
+  display: inline-block;
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel));
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+}
+
+.proceso-paso--listo .proceso-paso__pct {
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+  color: var(--ok);
+}
+
+.proceso-paso--pendiente .proceso-paso__pct {
+  opacity: 0.85;
 }
 
 .proceso-paso--listo .proceso-paso__badge {
